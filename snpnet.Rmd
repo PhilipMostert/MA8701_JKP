@@ -37,7 +37,7 @@ install_github("junyangq/snpnet", dependencies = TRUE)
 
 Download the genomic data from [here](https://datadryad.org/stash/dataset/doi:10.5061/dryad.m0cfxpp10). We will use the full SNP data set, in the files `Genotypes.map` and `Genotypes.ped`.
 
-We first prepare the data using PLINK v2 (I assume it is in your working folder). We do the standard quality control steps (remove SNPs with minor allele frequency lower than $0.01$, remove SNPs missing in more than $10\%$ of individuals and remove individuals missing more than $5\%$ of the SNPs). This might be unecessary because `snpnet` does this in-built. We also the dataset to the input format the `snpnet` needs.
+We first prepare the data using PLINK v2. Download the `plink2` file from [here](https://www.cog-genomics.org/plink/2.0/) and put it in your working folder. We now do the standard quality control steps (remove SNPs with minor allele frequency lower than $0.01$, remove SNPs missing in more than $10\%$ of individuals and remove individuals missing more than $5\%$ of the SNPs). This might be unnecessary because `snpnet` does this in-built. We also change the dataset to the input format that `snpnet` needs.
 
 ```{r plink}
 system2("./plink2", "--pedmap doi_10.5061_dryad.m0cfxpp10__v10/Genotypes --chr-set 32 --out sparrow_snps --maf 0.01 --geno 0.1 --mind 0.05 --make-pgen vzs")
