@@ -51,10 +51,10 @@ library(dplyr)
 df <- read.table("doi_10.5061_dryad.m0cfxpp10__v10/Data.txt",
                  header = T)
 
-# We should account fo
+# We should account for env. effects too...
 df2 <- select(df, c("age1wing", "age1tarsus", "age1mass"))
 
-df2$IID = df$id
+df2$IID <- df$id
 df2$FID <- 1
 # Make the file that snpnet needs
 
@@ -88,14 +88,21 @@ for (name in names(configs)) {
     )
 }
 
+configs$nCores <- parallel::detectCores() - 1
+configs$use.glmnetPlus <- TRUE
+
 model <- snpnet(genotype.pfile = "sparrow_snps",
                 phenotype.file = "pheno.csv",
                 phenotype = "age1tarsus",
+                # Can add fixed effects here
                 covariates = NULL,
                 # alpha = 1 means lasso, 0 means ridge, elastic net between
                 alpha = 1, 
                 nlambda = 100, 
                 configs = configs)
+
+# save result object for phillip
+save(model, file = "model1.RData")
 
 ```
 
