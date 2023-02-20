@@ -106,3 +106,9 @@ save(model, file = "model1.RData")
 
 ```
 
+```{r, plot}
+
+##Only this plot looks good
+plot(model$glmnet.results[[1]])
+
+```
