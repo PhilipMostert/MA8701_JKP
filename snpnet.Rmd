@@ -77,7 +77,7 @@ configs <- list(
     # prevIter = 15,  # if we want to start from some iteration saved in results.dir
     # use.glmnetPlus = TRUE,  # recommended for faster computation
     # early.stopping = FALSE,  # whether to stop based on validation performance (default TRUE)
-    plink2.path = "./plink2",   # path to plink2 program
+    plink2.path = "./sparrows/plink2",   # path to plink2 program
     zstdcat.path = "zstdcat"  # path to zstdcat program
 )
 
@@ -106,3 +106,9 @@ save(model, file = "model1.RData")
 
 ```
 
+```{r, plot}
+
+##Only this plot looks good
+plot(model$glmnet.results[[1]])
+
+```
