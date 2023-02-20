@@ -52,11 +52,28 @@ df <- read.table("doi_10.5061_dryad.m0cfxpp10__v10/Data.txt",
                  header = T)
 
 # We should account for env. effects too...
-df2 <- select(df, c("age1wing", "age1tarsus", "age1mass"))
+
+response = "age1wing" # or age1tarsus, age1mass
+
+# Create CV splits
+num_folds <- 10
+
+df2 <- select(df, response)
+df2[paste0("fold", 1:num_folds)] = NA
+
+s <- (!is.na(df2[, 1])) %>%
+  sum() %>%
+  seq_len() %>%
+  sample() %>%
+  cut(breaks = num_folds)
+
+df2[!is.na(df2), paste0("fold", 1:num_folds)] <- 
+  sapply(1:10, function(fold) ifelse(s == levels(s)[fold], "val", "train"))
+
+# Make the file that snpnet needs
 
 df2$IID <- df$id
 df2$FID <- 1
-# Make the file that snpnet needs
 
 write.csv(df2, file = "pheno.csv", row.names = F)
 
@@ -76,8 +93,8 @@ configs <- list(
     # niter = 100,  # max number of iterations (default 50)
     # prevIter = 15,  # if we want to start from some iteration saved in results.dir
     # use.glmnetPlus = TRUE,  # recommended for faster computation
-    # early.stopping = FALSE,  # whether to stop based on validation performance (default TRUE)
-    plink2.path = "./sparrows/plink2",   # path to plink2 program
+    early.stopping = FALSE,  # whether to stop based on validation performance (default TRUE)
+    plink2.path = "./plink2",   # path to plink2 program
     zstdcat.path = "zstdcat"  # path to zstdcat program
 )
 
@@ -90,25 +107,65 @@ for (name in names(configs)) {
 
 configs$nCores <- parallel::detectCores() - 1
 configs$use.glmnetPlus <- TRUE
+configs$early.stopping <- FALSE # to run all lambdas in each fold
+configs$stopping.lag <- 100 # to run all lambdas in each fold
+configs$verbose <- FALSE # shut up
 
-model <- snpnet(genotype.pfile = "sparrow_snps",
-                phenotype.file = "pheno.csv",
-                phenotype = "age1tarsus",
-                # Can add fixed effects here
-                covariates = NULL,
-                # alpha = 1 means lasso, 0 means ridge, elastic net between
-                alpha = 1, 
-                nlambda = 100, 
-                configs = configs)
+full_model <- snpnet(genotype.pfile = "sparrow_snps",
+                     phenotype.file = "pheno.csv",
+                     phenotype = response,
+                     # Can add fixed effects here
+                     covariates = NULL,
+                     # alpha = 1 means lasso, 0 means ridge, elastic net between
+                     alpha = 1, 
+                     nlambda = 100, # could increase for finer scale
+                     split.col = NULL, # no validation
+                     configs = configs)
+
+result <- vector("list", num_folds)
+for (k in 1:num_folds) {
+  model <- snpnet(genotype.pfile = "sparrow_snps",
+                  phenotype.file = "pheno.csv",
+                  phenotype = response,
+                  # Can add fixed effects here
+                  covariates = NULL,
+                  # alpha = 1 means lasso, 0 means ridge, elastic net between
+                  alpha = 1, 
+                  lambda = full_model$full.lams, # make sure we check same lambdas
+                  split.col = paste0("fold", k), # cross-validation
+                  configs = configs)  
+  result[[k]] <- model
+}
+
+# Choose best lambda
+cv_metric <- rowMeans(sapply(result, function(res) res$metric.val))
+opt_idx <- which.max(cv_metric) # metric: R^2 in val. set
+opt_lambda <- full_model$full.lams[opt_idx]
+
+# Non-zero betas in opt. model
+opt_betas <- full_model$beta[[opt_idx]][full_model$beta[[opt_idx]] != 0] 
 
 # save result object for phillip
-save(model, file = "model1.RData")
+save(full_model,
+     cv_metric, 
+     opt_idx, 
+     opt_lambda, 
+     opt_betas,
+     file = "cv_model.RData")
 
 ```
 
 ```{r, plot}
 
-##Only this plot looks good
-plot(model$glmnet.results[[1]])
+plot(full_model$full.lams,
+     cv_metric, 
+     xlab = "lambda", 
+     ylab = "mean of 10 folds' R^2 in val. set")
+abline(v = opt_lambda)
+
+# There is one large beta for wing length
+plot(opt_betas)
+
+plot(full_model$glmnet.results[[1]])
 
 ```
