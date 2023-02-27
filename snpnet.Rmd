@@ -22,7 +22,7 @@ These datasets are naturally massive, which makes finding the effect of SNPs inc
 
 ## Prerequisites
 
-First, install `snpnet` package according to instructions provided [here](https://github.com/junyangq/snpnet).
+`glmnet` [@friedman2010regularization] is a popular *R* package to fit lasso regression effectively. However the package struggles when both the sample size and number of predictor variables is incredibly large. As a result, we use `snpnet` [@snpnet], which is a bespoke *R* package designed to fit penalizing regression methods for individual-level genetic data such as those used in this example. `snpnet` is not on CRAN, and must therefore be installed using the following instructions provided [here](https://github.com/junyangq/snpnet).
 
 ```{r snpnet, eval = FALSE}
 library(devtools)
