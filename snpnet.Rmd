@@ -77,7 +77,10 @@ X <- model.matrix(get(response) ~ gen_sex + all_hatchyears + fiflok,
 covs <- c("FGRM", colnames(X))
 df2[, covs[-1]] <- X
 
-write.table(df2, file = paste0("pheno_", response, ".txt"), row.names = F, quote = F)
+write.table(df2, 
+            file = paste0("pheno_", response, ".txt"),
+            row.names = F,
+            quote = F)
 
 ```
 
@@ -180,6 +183,8 @@ system2("./plink2",
                " --pheno-name ", response,
                " --covar ", paste0("pheno_", response, ".txt"),
                " --covar-name ", paste(covs, collapse = " "),
-               " --glm"))
+               " --glm hide-covar"))
 
+lm_res <- data.table::fread(file = paste0("plink2.", response, ".glm.linear"))
+p_values <- lm_res$P
 ```
