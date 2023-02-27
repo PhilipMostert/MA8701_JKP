@@ -3,15 +3,26 @@ title: "snpnet analysis"
 author: "JKP"
 date: "2023-02-13"
 output: html_document
+bibliography: Bibliography.bib
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## R Markdown
+# Introduction
 
-First, install `snpnet` package according to instructions [here](https://github.com/junyangq/snpnet).
+One of the phenomenons that ecologists may be concerned with is inbreeding depression: the decrease in fitness of organisms as a result of inbreeding within a population. This phenomenon typically occurs in small populations, lowering the population's ability to survive and reproduce, which substantially increases their risk of extinction.
+
+A Single nucleotide polymorphism (SNP) is a variation at specific positions in a DNA sequence in living organisms.
+
+In this analysis we use data collected on house sparrows.
+
+These datasets are naturally massive, which makes finding the effect of SNPs incredibly difficult.
+
+## Prerequisites
+
+First, install `snpnet` package according to instructions provided [here](https://github.com/junyangq/snpnet).
 
 ```{r snpnet, eval = FALSE}
 library(devtools)
@@ -84,11 +95,13 @@ write.table(df2,
 
 ```
 
-## Analysis
+## Exploratory data analysis
+
+## Statistical analysis
 
 Do the analysis.
 
-```{r analysis}
+```{r Lasso}
 library(snpnet)
 
 configs <- list(
@@ -188,3 +201,7 @@ system2("./plink2",
 lm_res <- data.table::fread(file = paste0("plink2.", response, ".glm.linear"))
 p_values <- lm_res$P
 ```
+
+## Conclusion
+
+## Bibliography
