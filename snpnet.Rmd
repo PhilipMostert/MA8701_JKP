@@ -1,13 +1,19 @@
 ---
-title: "snpnet analysis"
-author: "JKP"
-date: "2023-02-13"
+title: "MA8701: Advanced statistical methods in inference and learning"
+subtitle: 'Project 1: Analysis using shrinkage methods'
+author:
+- name: "Janne Cathrin Hetle Aspheim"
+- name: "Philip Stanley Mostert"
+- name: "Kenneth Aase"
+- name: "Group: JKP"
+date: "`r format(Sys.time(), '%d %B %Y')`"
 output: html_document
 bibliography: Bibliography.bib
+biblio-style: authoryear
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = TRUE, eval = FALSE)
 ```
 
 # Introduction
@@ -16,7 +22,7 @@ One of the phenomenons that ecologists may be concerned with is inbreeding depre
 
 A Single nucleotide polymorphism (SNP) is a variation at specific positions in a DNA sequence in living organisms.
 
-In this analysis we use data collected on house sparrows.
+In this analysis we use data collected of house sparrow on 18 islands at the Helgeland coast (Norway), studied in @niskanen2020consistent.
 
 These datasets are naturally massive, which makes finding the effect of SNPs incredibly difficult.
 
@@ -46,7 +52,7 @@ install_github("junyangq/snpnet", dependencies = TRUE)
 
 ### Genomic data
 
-Download the genomic data from [here](https://datadryad.org/stash/dataset/doi:10.5061/dryad.m0cfxpp10). We will use the full SNP data set, in the files `Genotypes.map` and `Genotypes.ped`.
+Download the genomic data from @DataUsed. We will use the full SNP data set, in the files `Genotypes.map` and `Genotypes.ped`.
 
 We first prepare the data using PLINK v2. Download the `plink2` file from [here](https://www.cog-genomics.org/plink/2.0/) and put it in your working folder. We now do the standard quality control steps (remove SNPs with minor allele frequency lower than $0.01$, remove SNPs missing in more than $10\%$ of individuals and remove individuals missing more than $5\%$ of the SNPs). This might be unnecessary because `snpnet` does this in-built. We also change the dataset to the input format that `snpnet` needs.
 
