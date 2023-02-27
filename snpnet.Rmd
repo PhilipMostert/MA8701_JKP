@@ -51,31 +51,33 @@ library(dplyr)
 df <- read.table("doi_10.5061_dryad.m0cfxpp10__v10/Data.txt",
                  header = T)
 
-# We should account for env. effects too...
+response = "age1wing" # or age1tarsus, age1mass, ....
 
-response = "age1wing" # or age1tarsus, age1mass
+df2 <- select(df[!is.na(df[, response]), ], c(response, "FGRM", "gen_sex", "all_hatchyears", "fiflok"))
 
 # Create CV splits
 num_folds <- 10
-
-df2 <- select(df, response)
 df2[paste0("fold", 1:num_folds)] = NA
-
-s <- (!is.na(df2[, 1])) %>%
-  sum() %>%
+s <- dim(df2)[1] %>%
   seq_len() %>%
   sample() %>%
   cut(breaks = num_folds)
-
-df2[!is.na(df2), paste0("fold", 1:num_folds)] <- 
+df2[, paste0("fold", 1:num_folds)] <- 
   sapply(1:10, function(fold) ifelse(s == levels(s)[fold], "val", "train"))
 
 # Make the file that snpnet needs
 
-df2$IID <- df$id
-df2$FID <- 1
+df2 <- cbind(data.frame(FID = 1, IID = df$id[!is.na(df[, response])]), df2)
+df2$gen_sex <- as.factor(df2$gen_sex)
+df2$all_hatchyears <- as.factor(df2$all_hatchyears)
+df2$fiflok <- as.factor(df2$fiflok)
+# Create dummy variables since snpnet and plink are not as smart as lm()
+X <- model.matrix(get(response) ~ gen_sex + all_hatchyears + fiflok,
+                  data = df2, )[, -1]
+covs <- c("FGRM", colnames(X))
+df2[, covs[-1]] <- X
 
-write.csv(df2, file = "pheno.csv", row.names = F)
+write.table(df2, file = paste0("pheno_", response, ".txt"), row.names = F, quote = F)
 
 ```
 
@@ -112,10 +114,10 @@ configs$stopping.lag <- 100 # to run all lambdas in each fold
 configs$verbose <- FALSE # shut up
 
 full_model <- snpnet(genotype.pfile = "sparrow_snps",
-                     phenotype.file = "pheno.csv",
+                     phenotype.file = paste0("pheno_", response, ".txt"),
                      phenotype = response,
                      # Can add fixed effects here
-                     covariates = NULL,
+                     covariates = covs,
                      # alpha = 1 means lasso, 0 means ridge, elastic net between
                      alpha = 1, 
                      nlambda = 100, # could increase for finer scale
@@ -125,15 +127,15 @@ full_model <- snpnet(genotype.pfile = "sparrow_snps",
 result <- vector("list", num_folds)
 for (k in 1:num_folds) {
   model <- snpnet(genotype.pfile = "sparrow_snps",
-                  phenotype.file = "pheno.csv",
+                  phenotype.file = paste0("pheno_", response, ".txt"),
                   phenotype = response,
                   # Can add fixed effects here
-                  covariates = NULL,
+                  covariates = covs,
                   # alpha = 1 means lasso, 0 means ridge, elastic net between
                   alpha = 1, 
                   lambda = full_model$full.lams, # make sure we check same lambdas
                   split.col = paste0("fold", k), # cross-validation
-                  configs = configs)  
+                  configs = configs)
   result[[k]] <- model
 }
 
@@ -151,7 +153,7 @@ save(full_model,
      opt_idx, 
      opt_lambda, 
      opt_betas,
-     file = "cv_model.RData")
+     file = paste0("cv_model_", response, ".RData"))
 
 ```
 
@@ -167,5 +169,17 @@ abline(v = opt_lambda)
 plot(opt_betas)
 
 plot(full_model$glmnet.results[[1]])
+
+system2("./plink2", 
+        paste0("--pfile vzs sparrow_snps --snps ",
+               paste(substr(names(opt_betas),
+                            start = 1,
+                            stop = nchar(names(opt_betas)) - 2),
+                     collapse = ", "),
+               " --pheno ", paste0("pheno_", response, ".txt"),
+               " --pheno-name ", response,
+               " --covar ", paste0("pheno_", response, ".txt"),
+               " --covar-name ", paste(covs, collapse = " "),
+               " --glm"))
 
 ```
