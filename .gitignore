@@ -42,6 +42,8 @@ vignettes/*.pdf
 
 doi*
 
-plink2
+plink2*
+
+pheno*
 
 sparrow_snps*
