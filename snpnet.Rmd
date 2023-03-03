@@ -13,7 +13,7 @@ biblio-style: authoryear
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = TRUE, eval = FALSE)
 ```
 
 # Introduction
@@ -102,6 +102,8 @@ write.table(df2,
 ```
 
 ## Exploratory data analysis
+
+## Introduction to methods
 
 ## Statistical analysis
 
@@ -207,6 +209,8 @@ system2("./plink2",
 lm_res <- data.table::fread(file = paste0("plink2.", response, ".glm.linear"))
 p_values <- lm_res$P
 ```
+
+### Analysis of results
 
 ## Conclusion
 
