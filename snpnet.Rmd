@@ -13,7 +13,7 @@ biblio-style: authoryear
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = TRUE, eval = FALSE)
 ```
 
 # Introduction
@@ -35,7 +35,7 @@ library(devtools)
 
 # First, install dependencies that are not on CRAN
 install_github("junyangq/glmnetPlus", dependencies = TRUE)
-## if this ^ does not work, run 
+## if this ^ does not work, run
 ## curl -LO http://r.research.att.com/libs/gfortran-4.8.2-darwin13.tar.bz2
 ## sudo tar fvxj gfortran-4.8.2-darwin13.tar.bz2 -C /
 # in the terminal and then try again.
@@ -79,7 +79,7 @@ s <- dim(df2)[1] %>%
   seq_len() %>%
   sample() %>%
   cut(breaks = num_folds)
-df2[, paste0("fold", 1:num_folds)] <- 
+df2[, paste0("fold", 1:num_folds)] <-
   sapply(1:10, function(fold) ifelse(s == levels(s)[fold], "val", "train"))
 
 # Make the file that snpnet needs
@@ -94,7 +94,7 @@ X <- model.matrix(get(response) ~ gen_sex + all_hatchyears + fiflok,
 covs <- c("FGRM", colnames(X))
 df2[, covs[-1]] <- X
 
-write.table(df2, 
+write.table(df2,
             file = paste0("pheno_", response, ".txt"),
             row.names = F,
             quote = F)
@@ -102,6 +102,8 @@ write.table(df2,
 ```
 
 ## Exploratory data analysis
+
+## Introduction to methods
 
 ## Statistical analysis
 
@@ -141,7 +143,7 @@ full_model <- snpnet(genotype.pfile = "sparrow_snps",
                      # Can add fixed effects here
                      covariates = covs,
                      # alpha = 1 means lasso, 0 means ridge, elastic net between
-                     alpha = 1, 
+                     alpha = 1,
                      nlambda = 100, # could increase for finer scale
                      split.col = NULL, # no validation
                      configs = configs)
@@ -154,7 +156,7 @@ for (k in 1:num_folds) {
                   # Can add fixed effects here
                   covariates = covs,
                   # alpha = 1 means lasso, 0 means ridge, elastic net between
-                  alpha = 1, 
+                  alpha = 1,
                   lambda = full_model$full.lams, # make sure we check same lambdas
                   split.col = paste0("fold", k), # cross-validation
                   configs = configs)
@@ -167,13 +169,13 @@ opt_idx <- which.max(cv_metric) # metric: R^2 in val. set
 opt_lambda <- full_model$full.lams[opt_idx]
 
 # Non-zero betas in opt. model
-opt_betas <- full_model$beta[[opt_idx]][full_model$beta[[opt_idx]] != 0] 
+opt_betas <- full_model$beta[[opt_idx]][full_model$beta[[opt_idx]] != 0]
 
 # save result object for phillip
 save(full_model,
-     cv_metric, 
-     opt_idx, 
-     opt_lambda, 
+     cv_metric,
+     opt_idx,
+     opt_lambda,
      opt_betas,
      file = paste0("cv_model_", response, ".RData"))
 
@@ -182,8 +184,8 @@ save(full_model,
 ```{r, plot}
 
 plot(full_model$full.lams,
-     cv_metric, 
-     xlab = "lambda", 
+     cv_metric,
+     xlab = "lambda",
      ylab = "mean of 10 folds' R^2 in val. set")
 abline(v = opt_lambda)
 
@@ -192,7 +194,7 @@ plot(opt_betas)
 
 plot(full_model$glmnet.results[[1]])
 
-system2("./plink2", 
+system2("./plink2",
         paste0("--pfile vzs sparrow_snps --snps ",
                paste(substr(names(opt_betas),
                             start = 1,
@@ -217,33 +219,33 @@ p_values <- vector("list", B)
 
 for (b in 1:B) {
   split <- sample(x = df2$IID, size = round(length(df2$IID) / 2))
-  
-  write.table(df2[df2$IID %in% split, ], 
+
+  write.table(df2[df2$IID %in% split, ],
               file = paste0("pheno_ss_", response, ".txt"),
               row.names = F,
               quote = F)
-  
+
   ss_model <- snpnet(genotype.pfile = "sparrow_snps",
                      phenotype.file = paste0("pheno_ss_", response, ".txt"),
                      phenotype = response,
                      # Fixed effects
                      covariates = covs,
                      # alpha = 1 means lasso, 0 means ridge, elastic net between
-                     alpha = 1, 
+                     alpha = 1,
                      lambda = opt_lambda, # Use optimal lambda
                      split.col = NULL, # cross-validation
                      configs = configs)
-  
+
   ss_betas <-  ss_model$beta[[1]][ss_model$beta[[1]] != 0][-(1:(length(covs)))]
-  
+
   # delete file
-  
-  write.table(df2[!df2$IID %in% split, ], 
+
+  write.table(df2[!df2$IID %in% split, ],
               file = paste0("pheno_ss!_", response, ".txt"),
               row.names = F,
               quote = F)
-  
-  system2("./plink2", 
+
+  system2("./plink2",
           paste0("--pfile vzs sparrow_snps --snps ",
                  paste(substr(names(ss_betas),
                               start = 1,
@@ -254,24 +256,24 @@ for (b in 1:B) {
                  " --covar ", paste0("pheno_ss!_", response, ".txt"),
                  " --covar-name ", paste(covs, collapse = " "),
                  " --glm hide-covar"))
-  
+
   lm_res <- data.table::fread(file = paste0("plink2.", response, ".glm.linear"))
   p_values[[b]] <- data.frame(ID = lm_res$ID,
                               # Correct for multiple testing
                               P_corr = pmin(lm_res$P * dim(lm_res)[1], 1))
-  
+
   rm(lm_res)
   gc()
-  
+
 }
 
 atleastonce <- unique(unlist(sapply(p_values, function(p) p$ID)))
 
 dfs <- lapply(p_values, function(x) {
-  
+
   df <- data.frame(p_val = rep(1, length(atleastonce))) # Non-chosen p-values=1
   df$p_val[atleastonce %in% x$ID] <- x$P_corr
-  
+
   df
 })
 

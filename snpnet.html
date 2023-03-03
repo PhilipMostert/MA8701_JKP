@@ -10,7 +10,7 @@
 
 
 
-<meta name="date" content="2023-02-27" />
+<meta name="date" content="2023-03-03" />
 
 <title>MA8701: Advanced statistical methods in inference and learning</title>
 
@@ -378,18 +378,19 @@ inference and learning</h1>
 <h4 class="author">Philip Stanley Mostert</h4>
 <h4 class="author">Kenneth Aase</h4>
 <h4 class="author">Group: JKP</h4>
-<h4 class="date">27 February 2023</h4>
+<h4 class="date">03 March 2023</h4>
 
 </div>
 
 
 <div id="introduction" class="section level1">
 <h1>Introduction</h1>
-<p>One of the phenomenons that ecologists may be concerned with is
-inbreeding depression: the decrease in fitness of organisms as a result
-of inbreeding within a population. This phenomenon typically occurs in
-small populations, lowering the population’s ability to survive and
-reproduce, which substantially increases their risk of extinction.</p>
+<p>One of the phenomenons that ecologists and genomicists may be
+concerned with is inbreeding depression: the decrease in fitness of
+organisms as a result of inbreeding within a population. This phenomenon
+typically occurs in small populations, lowering the population’s ability
+to survive and reproduce, which substantially increases their risk of
+extinction.</p>
 <p>A Single nucleotide polymorphism (SNP) is a variation at specific
 positions in a DNA sequence in living organisms.</p>
 <p>In this analysis we use data collected of house sparrow on 18 islands
@@ -483,6 +484,9 @@ write.table(df2,
 </div>
 <div id="exploratory-data-analysis" class="section level2">
 <h2>Exploratory data analysis</h2>
+</div>
+<div id="introduction-to-methods" class="section level2">
+<h2>Introduction to methods</h2>
 </div>
 <div id="statistical-analysis" class="section level2">
 <h2>Statistical analysis</h2>
@@ -580,6 +584,9 @@ system2(&quot;./plink2&quot;,
 
 lm_res &lt;- data.table::fread(file = paste0(&quot;plink2.&quot;, response, &quot;.glm.linear&quot;))
 p_values &lt;- lm_res$P</code></pre>
+<div id="analysis-of-results" class="section level3">
+<h3>Analysis of results</h3>
+</div>
 </div>
 <div id="conclusion" class="section level2">
 <h2>Conclusion</h2>
