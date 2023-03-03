@@ -22,7 +22,7 @@ Ecologists and genomicists are interested in understanding how variation in the 
 
 In this analysis we use SNP data collected of house sparrow (*Passer domesticus*) on 18 islands at the Helgeland coast (Norway), studied in @niskanen2020consistent. These data have been collected since 1993 and contains a wide variety of different information: pedigree, genetic alongside morphological and life-history data [@lundregan2018inferences].
 
-For this project, we focus on studying the genetic architecture of the house sparrows, analyzing which SNPs have a significant effect on the wing length of the sparrows. Genomic data is usually characterized by an incredibly large numbers of SNP effects, which makes finding the statistical effects of them on the response difficult. As a result, we use regularization techniques to find an optimal penalty term for our model. We then use sample splitting techniques models to compute the *p-values* and associated confidence intervalsfor the SNPs.
+For this project, we focus on studying the genetic architecture of the house sparrows, analyzing which SNPs have a significant effect on the wing length of the sparrows. Genomic data is usually characterized by an incredibly large numbers of SNP effects, which makes finding the statistical effects of them on the response difficult. As a result, we use regularization techniques to find an optimal penalty term for our model. We then use sample splitting techniques to compute the *p-values* and associated confidence intervals for the effects of the SNPs.
 
 ## Prerequisites
 
@@ -207,7 +207,6 @@ system2("./plink2",
 lm_res <- data.table::fread(file = paste0("plink2.", response, ".glm.linear"))
 p_values <- lm_res$P
 ```
-
 
 ```{r ss, echo=FALSE}
 
