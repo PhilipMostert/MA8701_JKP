@@ -18,7 +18,7 @@ knitr::opts_chunk$set(echo = TRUE, eval = FALSE)
 
 # Introduction
 
-Ecologists and genomicists are interested in understanding how variation in the genetic architecture of populations of species in order to determine the traits which drive the fitness of a species. To do so, they study single nucleotide polymorphisms (SNPs) common across a population, which represent a variation at a specific position in a DNA sequence.
+Ecologists and genomicists are interested in understanding the variation in the genetic architecture of populations of species in order to determine the traits which drive the fitness of a species. To do so, they use statistical analyses to study a significant number of single nucleotide polymorphisms (SNPs) common across a population. These SNPs represent a variation at a specific position in a DNA sequence and are responsible for the diversity among species in the same population.
 
 In this analysis we use SNP data collected of house sparrow (*Passer domesticus*) on 18 islands at the Helgeland coast (Norway), studied in @niskanen2020consistent. These data have been collected since 1993 and contains a wide variety of different information: pedigree, genetic alongside morphological and life-history data [@lundregan2018inferences].
 
