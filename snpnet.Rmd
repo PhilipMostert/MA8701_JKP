@@ -13,12 +13,12 @@ biblio-style: authoryear
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE, eval = FALSE)
+knitr::opts_chunk$set(echo = TRUE)
 ```
 
 # Introduction
 
-One of the phenomenons that ecologists may be concerned with is inbreeding depression: the decrease in fitness of organisms as a result of inbreeding within a population. This phenomenon typically occurs in small populations, lowering the population's ability to survive and reproduce, which substantially increases their risk of extinction.
+One of the phenomenons that ecologists and genomicists may be concerned with is inbreeding depression: the decrease in fitness of organisms as a result of inbreeding within a population. This phenomenon typically occurs in small populations, lowering the population's ability to survive and reproduce, which substantially increases their risk of extinction.
 
 A Single nucleotide polymorphism (SNP) is a variation at specific positions in a DNA sequence in living organisms.
 
