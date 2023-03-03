@@ -58,6 +58,8 @@ We first prepare the data using PLINK v2. Download the `plink2` file from [here]
 system2("./plink2", "--pedmap doi_10.5061_dryad.m0cfxpp10__v10/Genotypes --chr-set 32 --out sparrow_snps --maf 0.01 --geno 0.1 --mind 0.05 --make-pgen vzs")
 ```
 
+Running this script shows that we have 183155 SNPs to use in our analysis.
+
 ### Phenotype data
 
 ```{r phenotype}
@@ -99,7 +101,22 @@ write.table(df2,
 
 ```
 
-## Exploratory data analysis
+Looking at the dimensions of our data, we see that we have 1796 observations of wing length, and around 23 covariates in the model.
+
+```{R pheno}
+
+dim(df2[, covs[-1]])
+
+```
+
+A plot of the response variable is given below
+
+```{r EDA}
+
+plot(df2$IID, df2$age1wing)
+abline(h= mean(df2$age1wing), col = 'red')
+
+```
 
 ## Introduction to methods
 
