@@ -58,7 +58,7 @@ We first prepare the data using PLINK v2. Download the `plink2` file from [here]
 system2("./plink2", "--pedmap doi_10.5061_dryad.m0cfxpp10__v10/Genotypes --chr-set 32 --out sparrow_snps --maf 0.01 --geno 0.1 --mind 0.05 --make-pgen vzs")
 ```
 
-Running this script shows that we have 183155 SNPs to use in our analysis.
+Running this script shows that we have 183155 SNPs to use in our analysis. Due to practical and computational reasons, these data will not be loaded into the *R* session, and so no graphical summary is available on them.
 
 ### Phenotype data
 
