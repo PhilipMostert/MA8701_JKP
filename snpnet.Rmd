@@ -18,13 +18,11 @@ knitr::opts_chunk$set(echo = TRUE, eval = FALSE)
 
 # Introduction
 
-One of the phenomenons that ecologists and genomicists may be concerned with is inbreeding depression: the decrease in fitness of organisms as a result of inbreeding within a population. This phenomenon typically occurs in small populations, lowering the population's ability to survive and reproduce, which substantially increases their risk of extinction.
+Ecologists and genomicists are interested in understanding the variation in the genetic architecture of populations of species in order to determine the traits which drive the fitness of a species. To do so, they use statistical analyses to study a significant number of single nucleotide polymorphisms (SNPs) common across a population. These SNPs represent a variation at a specific position in a DNA sequence and are responsible for the diversity among species in the same population.
 
-A Single nucleotide polymorphism (SNP) is a variation at specific positions in a DNA sequence in living organisms.
+In this analysis we use SNP data collected of house sparrow (*Passer domesticus*) on 18 islands at the Helgeland coast (Norway), studied in @niskanen2020consistent. These data have been collected since 1993 and contains a wide variety of different information: pedigree, genetic alongside morphological and life-history data [@lundregan2018inferences].
 
-In this analysis we use data collected of house sparrow on 18 islands at the Helgeland coast (Norway), studied in @niskanen2020consistent.
-
-These datasets are naturally massive, which makes finding the effect of SNPs incredibly difficult.
+For this project, we focus on studying the genetic architecture of the house sparrows, analyzing which SNPs have a significant effect on the wing length of the sparrows. Genomic data is usually characterized by an incredibly large numbers of SNP effects, which makes finding the statistical effects of them on the response difficult. As a result, we use regularization techniques to find an optimal penalty term for our model. We then use sample splitting techniques to compute the *p-values* and associated confidence intervals for the effects of the SNPs.
 
 ## Prerequisites
 
@@ -59,6 +57,8 @@ We first prepare the data using PLINK v2. Download the `plink2` file from [here]
 ```{r plink}
 system2("./plink2", "--pedmap doi_10.5061_dryad.m0cfxpp10__v10/Genotypes --chr-set 32 --out sparrow_snps --maf 0.01 --geno 0.1 --mind 0.05 --make-pgen vzs")
 ```
+
+Running this script shows that we have 183155 SNPs to use in our analysis. Due to practical and computational reasons, these data will not be loaded into the *R* session, and so no graphical summary is available on them.
 
 ### Phenotype data
 
@@ -101,7 +101,22 @@ write.table(df2,
 
 ```
 
-## Exploratory data analysis
+Looking at the dimensions of our data, we see that we have 1796 observations of wing length, and around 23 covariates in the model.
+
+```{R pheno}
+
+dim(df2[, covs[-1]])
+
+```
+
+A plot of the response variable is given below
+
+```{r EDA}
+
+plot(df2$IID, df2$age1wing)
+abline(h= mean(df2$age1wing), col = 'red')
+
+```
 
 ## Introduction to methods
 
@@ -195,7 +210,6 @@ plot(opt_betas)
 plot(full_model$glmnet.results[[1]])
 
 ```
-
 
 ```{r ss, echo=FALSE}
 
