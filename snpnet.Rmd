@@ -194,20 +194,6 @@ plot(opt_betas)
 
 plot(full_model$glmnet.results[[1]])
 
-system2("./plink2",
-        paste0("--pfile vzs sparrow_snps --snps ",
-               paste(substr(names(opt_betas),
-                            start = 1,
-                            stop = nchar(names(opt_betas)) - 2),
-                     collapse = ", "),
-               " --pheno ", paste0("pheno_", response, ".txt"),
-               " --pheno-name ", response,
-               " --covar ", paste0("pheno_", response, ".txt"),
-               " --covar-name ", paste(covs, collapse = " "),
-               " --glm hide-covar"))
-
-lm_res <- data.table::fread(file = paste0("plink2.", response, ".glm.linear"))
-p_values <- lm_res$P
 ```
 
 
@@ -238,8 +224,6 @@ for (b in 1:B) {
 
   ss_betas <-  ss_model$beta[[1]][ss_model$beta[[1]] != 0][-(1:(length(covs)))]
 
-  # delete file
-
   write.table(df2[!df2$IID %in% split, ],
               file = paste0("pheno_ss!_", response, ".txt"),
               row.names = F,
@@ -267,26 +251,27 @@ for (b in 1:B) {
 
 }
 
+# Are we doing everything right order-wise?
 atleastonce <- unique(unlist(sapply(p_values, function(p) p$ID)))
 
-dfs <- lapply(p_values, function(x) {
+p_vals <- lapply(p_values, function(x) {
 
   df <- data.frame(p_val = rep(1, length(atleastonce))) # Non-chosen p-values=1
   df$p_val[atleastonce %in% x$ID] <- x$P_corr
 
   df
-})
+}) %>%
+  do.call(what = cbind)
 
-p_vals <- do.call(cbind, dfs)
 colnames(p_vals) <- paste0(colnames(p_vals), "_", 1:B)
 
 gamma <- 0.5
 Q_gamma <- apply(X = p_vals / gamma,
                  MARGIN = 1,
                  FUN = function(x) min(quantile(x, probs = gamma), 1))
-names(Q_gamma) <- p_vals$atleastonce
+names(Q_gamma) <- rownames(p_vals) <- atleastonce
 
-save(p_vals, Q_gamma, file = "sample_splitting_results.RData")
+save(p_values, p_vals, Q_gamma, file = "sample_splitting_results.RData")
 
 ```
 
