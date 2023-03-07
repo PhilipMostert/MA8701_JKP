@@ -215,7 +215,7 @@ plot(full_model$glmnet.results[[1]])
 
 configs$early.stopping <- TRUE
 B <- 1000
-p_values <- vector("list", B)
+p_values_split <- vector("list", B)
 
 for (b in 1:B) {
   split <- sample(x = df2$IID, size = round(length(df2$IID) / 2))
@@ -256,7 +256,7 @@ for (b in 1:B) {
                  " --glm hide-covar"))
 
   lm_res <- data.table::fread(file = paste0("plink2.", response, ".glm.linear"))
-  p_values[[b]] <- data.frame(ID = lm_res$ID,
+  p_values_split[[b]] <- data.frame(ID = lm_res$ID,
                               # Correct for multiple testing
                               P_corr = pmin(lm_res$P * dim(lm_res)[1], 1))
 
@@ -265,10 +265,11 @@ for (b in 1:B) {
 
 }
 
-# Are we doing everything right order-wise?
-atleastonce <- unique(unlist(sapply(p_values, function(p) p$ID)))
+# All SNPs with non-zero beta for in at least one split
+atleastonce <- unique(unlist(sapply(p_values_split, function(p) p$ID)))
 
-p_vals <- lapply(p_values, function(x) {
+# Combine results from splits
+p_values_split_combined <- lapply(p_values_split, function(x) {
 
   df <- data.frame(p_val = rep(1, length(atleastonce))) # Non-chosen p-values=1
   df$p_val[atleastonce %in% x$ID] <- x$P_corr
@@ -277,15 +278,35 @@ p_vals <- lapply(p_values, function(x) {
 }) %>%
   do.call(what = cbind)
 
-colnames(p_vals) <- paste0(colnames(p_vals), "_", 1:B)
+colnames(p_values_split_combined) <-
+  paste0(colnames(p_values_split_combined), "_", 1:B)
 
-gamma <- 0.5
-Q_gamma <- apply(X = p_vals / gamma,
-                 MARGIN = 1,
-                 FUN = function(x) min(quantile(x, probs = gamma), 1))
-names(Q_gamma) <- rownames(p_vals) <- atleastonce
+# Find Q_gamma for various values of gamma (i.e. correct for multiple splitting)
+gamma_min <- 0.05 # Minimum check quantile
+gamma <- seq(from = gamma_min, by = 0.01, to = 1)
+Q_gamma <- as.data.frame(lapply(X = gamma,
+                                FUN = function(g) {
+                                  apply(X = p_values_split_combined / g,
+                                        MARGIN = 1,
+                                        FUN = function(x) {
+                                          min(quantile(x, probs = g), 1)
+                                        })}),
+                         col.names = gamma,
+                         row.names = atleastonce)
 
-save(p_values, p_vals, Q_gamma, file = "sample_splitting_results.RData")
+# Choose gamma for each SNP, and correct for the choice by multiplying
+# with (1 - log(gamma_min))
+P_val_final <- pmin(1, apply(as.data.frame(Q_gamma),
+                             MARGIN = 1,
+                             FUN = min) * (1 - log(gamma_min)))
+  
+
+names(P_val_final) <- atleastonce
+
+save(p_values_split_combined,
+     Q_gamma,
+     P_val_final,
+     file = "sample_splitting_results.RData")
 
 ```
 
