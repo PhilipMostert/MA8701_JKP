@@ -88,7 +88,7 @@ df2 <- cbind(data.frame(FID = 1, IID = df$id[!is.na(df[, response])]), df2)
 df2$gen_sex <- as.factor(df2$gen_sex)
 df2$all_hatchyears <- as.factor(df2$all_hatchyears)
 df2$fiflok <- as.factor(df2$fiflok)
-# Create dummy variables since snpnet and plink are not as smart as lm()
+# Create dummy variables since snpnet() and plink are not as smart as lm()
 X <- model.matrix(get(response) ~ gen_sex + all_hatchyears + fiflok,
                   data = df2, )[, -1]
 covs <- c("FGRM", colnames(X))
@@ -124,7 +124,7 @@ abline(h= mean(df2$age1wing), col = 'red')
 
 Do the analysis.
 
-```{r Lasso}
+```{r Lasso, echo = FALSE}
 library(snpnet)
 
 configs <- list(
@@ -183,10 +183,10 @@ cv_metric <- rowMeans(sapply(result, function(res) res$metric.val))
 opt_idx <- which.max(cv_metric) # metric: R^2 in val. set
 opt_lambda <- full_model$full.lams[opt_idx]
 
-# Non-zero betas in opt. model
+# Non-zero betas in optimal model
 opt_betas <- full_model$beta[[opt_idx]][full_model$beta[[opt_idx]] != 0]
 
-# save result object for phillip
+# Save CV result
 save(full_model,
      cv_metric,
      opt_idx,
@@ -214,7 +214,7 @@ plot(full_model$glmnet.results[[1]])
 ```{r ss, echo=FALSE}
 
 configs$early.stopping <- TRUE
-B <- 1000
+B <- 1e3
 p_values_split <- vector("list", B)
 
 for (b in 1:B) {
@@ -272,7 +272,12 @@ atleastonce <- unique(unlist(sapply(p_values_split, function(p) p$ID)))
 p_values_split_combined <- lapply(p_values_split, function(x) {
 
   df <- data.frame(p_val = rep(1, length(atleastonce))) # Non-chosen p-values=1
-  df$p_val[atleastonce %in% x$ID] <- x$P_corr
+  rownames(df) <- atleastonce
+  
+  # Record p-values for chosen SNPs
+  for (snp in x$ID) {
+    df$p_val[rownames(df) == snp] <- x$P_corr[x$ID == snp]
+  }
 
   df
 }) %>%
@@ -299,7 +304,6 @@ Q_gamma <- as.data.frame(lapply(X = gamma,
 P_val_final <- pmin(1, apply(as.data.frame(Q_gamma),
                              MARGIN = 1,
                              FUN = min) * (1 - log(gamma_min)))
-  
 
 names(P_val_final) <- atleastonce
 
