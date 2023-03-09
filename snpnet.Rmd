@@ -109,14 +109,24 @@ dim(df2[, covs[-1]])
 
 ```
 
-A plot of the response variable is given below
+A plot of the response variable is given below.
 
-```{r EDA}
+```{r histo}
 
-plot(df2$IID, df2$age1wing)
-abline(h= mean(df2$age1wing), col = 'red')
+ggplot(data = df2, aes(x = age1wing)) +
+  geom_histogram(bins = 50) + 
+  ggtitle('Histogram of the wing lengths (mm)')
 
 ```
+
+```{R mean-sd}
+
+mean(df2$age1wing)
+sd(df2$age1wing)
+
+```
+
+We can see that the mean of the wing lengths is 79.7437 with a standard deviation of 2.18876.
 
 ## Introduction to methods
 
