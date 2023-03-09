@@ -18,6 +18,13 @@ knitr::opts_chunk$set(echo = TRUE, eval = FALSE)
 
 # Introduction
 
+```{r load results, echo = FALSE}
+
+load('cv_model_age1wing.RData')
+load('sample_splitting_results.RData')
+
+```
+
 Ecologists and genomicists are interested in understanding the variation in the genetic architecture of populations of species in order to determine the traits which drive the fitness of a species. To do so, they use statistical analyses to study a significant number of single nucleotide polymorphisms (SNPs) common across a population. These SNPs represent a variation at a specific position in a DNA sequence and are responsible for the diversity among species in the same population.
 
 In this analysis we use SNP data collected of house sparrow (*Passer domesticus*) on 18 islands at the Helgeland coast (Norway), studied in @niskanen2020consistent. These data have been collected since 1993 and contains a wide variety of different information: pedigree, genetic alongside morphological and life-history data [@lundregan2018inferences].
@@ -65,6 +72,7 @@ Running this script shows that we have 183155 SNPs to use in our analysis. Due t
 ```{r phenotype}
 # Load the data
 library(dplyr)
+
 df <- read.table("doi_10.5061_dryad.m0cfxpp10__v10/Data.txt",
                  header = T)
 
@@ -126,41 +134,45 @@ sd(df2$age1wing)
 
 ```
 
-We can see that the mean of the wing lengths is 79.7437 with a standard deviation of 2.18876.
+We can see that the mean of the wing lengths is 79.7437mm with a standard deviation of 2.18876.
 
 ## Introduction to methods
 
+Something on lasso + reference
+
+Equation on penalty
+
+Cite paper (Ken)
+
+Multiple sample splitting + equation + look at paper
+
 ## Statistical analysis
 
-Do the analysis.
+```{r checkthings, echo = FALSE}
 
-```{r Lasso, echo = FALSE}
-library(snpnet)
-
-configs <- list(
-    # results.dir = "PATH/TO/SAVE/DIR",  # needed when saving intermediate results
-    # save = TRUE,  # save intermediate results per iteration (default FALSE)
-    # nCores = 16,  # number of cores available (default 1)
-    # niter = 100,  # max number of iterations (default 50)
-    # prevIter = 15,  # if we want to start from some iteration saved in results.dir
-    # use.glmnetPlus = TRUE,  # recommended for faster computation
-    early.stopping = FALSE,  # whether to stop based on validation performance (default TRUE)
-    plink2.path = "./plink2",   # path to plink2 program
-    zstdcat.path = "zstdcat"  # path to zstdcat program
-)
-
-# check if the provided paths are valid
 for (name in names(configs)) {
     tryCatch(system(paste(configs[[name]], "-h"), ignore.stdout = T),
              condition = function(e) cat("Please add", configs[[name]], "to PATH, or modify the path in the configs list.")
     )
 }
 
+```
+
+```{r Lasso, echo = FALSE}
+library(snpnet)
+
+configs <- list(
+    early.stopping = FALSE,
+    plink2.path = "./plink2",   
+    zstdcat.path = "zstdcat"
+)
+
+
 configs$nCores <- parallel::detectCores() - 1
 configs$use.glmnetPlus <- TRUE
-configs$early.stopping <- FALSE # to run all lambdas in each fold
-configs$stopping.lag <- 100 # to run all lambdas in each fold
-configs$verbose <- FALSE # shut up
+configs$early.stopping <- FALSE
+configs$stopping.lag <- 100
+configs$verbose <- FALSE
 
 full_model <- snpnet(genotype.pfile = "sparrow_snps",
                      phenotype.file = paste0("pheno_", response, ".txt"),
@@ -325,5 +337,7 @@ save(p_values_split_combined,
 ```
 
 ## Conclusion
+
+We don't find any evidence that any of the available SNPs are related to wing length. This makes sense because of the infinitesimal model, which is a standard assumption in quantitative genetics that complex traits are determined by multiple SNPs, and very small contributions by individual SNPs.
 
 ## Bibliography
