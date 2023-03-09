@@ -138,9 +138,35 @@ We can see that the mean of the wing lengths is 79.7437mm with a standard deviat
 
 ## Introduction to methods
 
-Something on lasso + reference
+The aim of this analysis is to preform dimension reduction on the dataset to find a small subset of relevant SNPs; to do so we consider lasso regression.
 
-Equation on penalty
+Let $n$ be the number of observations, $p$ be the number of covariates, and consider the standard regression setup using matrix notation:
+
+$$
+\boldsymbol{Y} = \boldsymbol{X}\boldsymbol{\beta} +\boldsymbol{\epsilon},
+$$where:
+
+-   $\boldsymbol{Y}$ is a $n\times1$ vector of response variables (in our example the wing length),
+
+-   $\boldsymbol{X}$ is a $n\times p$ design matrix with rows of observations and columns of covariates (in our example the SNPs),
+
+-   $\boldsymbol{\beta}$ is a $n\times1$ vector of regression coefficients and
+
+-   $\boldsymbol{\epsilon}$ is a $n\times1$ vector of random error.
+
+The aim at hand is to choose a subset of $\boldsymbol{\beta}$ that exhibit the strongest effect. We do this by imposing some shrinkage term on the $\boldsymbol{\beta}$'s, such that some of them are set to $0$. We then define the lasso coefficients as ones which minimize a penalized residual sum of squares.
+
+$$
+\hat{\boldsymbol{\beta}}_{lasso} = argmin_{\boldsymbol{\beta}}\left(\left|\left|\boldsymbol{Y} - \boldsymbol{X}\boldsymbol{\beta}\right|\right|^2_2\right)
+$$
+
+subject to $\left|\left|\boldsymbol{\beta}\right|\right|_1 \le t$. Or using Lagrangian notation gives:
+
+$$
+\hat{\boldsymbol{\beta}}_{lasso} = argmin_{\boldsymbol{\beta}}\left( \left|\left|\boldsymbol{Y} - \boldsymbol{X}\boldsymbol{\beta}\right|\right|^2_2 - \lambda\left|\left|\boldsymbol{\beta}\right|\right|_1\right),
+$$where $\lambda \ge 0$ is the term which controls shrinkage.
+
+Something on lasso + reference
 
 Cite paper (Ken)
 
