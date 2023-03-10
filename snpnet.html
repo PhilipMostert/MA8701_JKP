@@ -10,7 +10,7 @@
 
 
 
-<meta name="date" content="2023-03-03" />
+<meta name="date" content="2023-03-10" />
 
 <title>MA8701: Advanced statistical methods in inference and learning</title>
 
@@ -378,25 +378,36 @@ inference and learning</h1>
 <h4 class="author">Philip Stanley Mostert</h4>
 <h4 class="author">Kenneth Aase</h4>
 <h4 class="author">Group: JKP</h4>
-<h4 class="date">03 March 2023</h4>
+<h4 class="date">10 March 2023</h4>
 
 </div>
 
 
 <div id="introduction" class="section level1">
 <h1>Introduction</h1>
-<p>One of the phenomenons that ecologists and genomicists may be
-concerned with is inbreeding depression: the decrease in fitness of
-organisms as a result of inbreeding within a population. This phenomenon
-typically occurs in small populations, lowering the population’s ability
-to survive and reproduce, which substantially increases their risk of
-extinction.</p>
-<p>A Single nucleotide polymorphism (SNP) is a variation at specific
-positions in a DNA sequence in living organisms.</p>
-<p>In this analysis we use data collected of house sparrow on 18 islands
-at the Helgeland coast (Norway), studied in <span class="citation">Niskanen et al. (2020)</span>.</p>
-<p>These datasets are naturally massive, which makes finding the effect
-of SNPs incredibly difficult.</p>
+<p>Ecologists and genomicists are interested in understanding the
+variation in the genetic architecture of populations of species in order
+to determine the traits which drive the fitness of a species. To do so,
+they use statistical analyses to study a significant number of single
+nucleotide polymorphisms (SNPs) common across a population. These SNPs
+represent a variation at a specific position in a DNA sequence and are
+responsible for the diversity among species in the same population.</p>
+<p>In this analysis we use SNP data collected of house sparrow
+(<em>Passer domesticus</em>) on 18 islands at the Helgeland coast
+(Norway), studied in <span class="citation">Niskanen et al.
+(2020)</span>. These data have been collected since 1993 and contains a
+wide variety of different information: pedigree, genetic alongside
+morphological and life-history data <span class="citation">(Lundregan et
+al. 2018)</span>.</p>
+<p>For this project, we focus on studying the genetic architecture of
+the house sparrows, analyzing which SNPs have a significant effect on
+the wing length of the sparrows. Genomic data is usually characterized
+by an incredibly large numbers of SNP effects, which makes finding the
+statistical effects of them on the response difficult. As a result, we
+use regularization techniques to find an optimal penalty term for our
+model. We then use sample splitting techniques to compute the
+<em>p-values</em> and associated confidence intervals for the effects of
+the SNPs.</p>
 <div id="prerequisites" class="section level2">
 <h2>Prerequisites</h2>
 <p><code>glmnet</code> <span class="citation">(Friedman, Hastie, and
@@ -413,7 +424,7 @@ instructions provided <a href="https://github.com/junyangq/snpnet">here</a>.</p>
 
 # First, install dependencies that are not on CRAN
 install_github(&quot;junyangq/glmnetPlus&quot;, dependencies = TRUE)
-## if this ^ does not work, run 
+## if this ^ does not work, run
 ## curl -LO http://r.research.att.com/libs/gfortran-4.8.2-darwin13.tar.bz2
 ## sudo tar fvxj gfortran-4.8.2-darwin13.tar.bz2 -C /
 # in the terminal and then try again.
@@ -442,11 +453,16 @@ of the SNPs). This might be unnecessary because <code>snpnet</code> does
 this in-built. We also change the dataset to the input format that
 <code>snpnet</code> needs.</p>
 <pre class="r"><code>system2(&quot;./plink2&quot;, &quot;--pedmap doi_10.5061_dryad.m0cfxpp10__v10/Genotypes --chr-set 32 --out sparrow_snps --maf 0.01 --geno 0.1 --mind 0.05 --make-pgen vzs&quot;)</code></pre>
+<p>Running this script shows that we have 183155 SNPs to use in our
+analysis. Due to practical and computational reasons, these data will
+not be loaded into the <em>R</em> session, and so no graphical summary
+is available on them.</p>
 </div>
 <div id="phenotype-data" class="section level3">
 <h3>Phenotype data</h3>
 <pre class="r"><code># Load the data
 library(dplyr)
+
 df &lt;- read.table(&quot;doi_10.5061_dryad.m0cfxpp10__v10/Data.txt&quot;,
                  header = T)
 
@@ -461,7 +477,7 @@ s &lt;- dim(df2)[1] %&gt;%
   seq_len() %&gt;%
   sample() %&gt;%
   cut(breaks = num_folds)
-df2[, paste0(&quot;fold&quot;, 1:num_folds)] &lt;- 
+df2[, paste0(&quot;fold&quot;, 1:num_folds)] &lt;-
   sapply(1:10, function(fold) ifelse(s == levels(s)[fold], &quot;val&quot;, &quot;train&quot;))
 
 # Make the file that snpnet needs
@@ -470,134 +486,149 @@ df2 &lt;- cbind(data.frame(FID = 1, IID = df$id[!is.na(df[, response])]), df2)
 df2$gen_sex &lt;- as.factor(df2$gen_sex)
 df2$all_hatchyears &lt;- as.factor(df2$all_hatchyears)
 df2$fiflok &lt;- as.factor(df2$fiflok)
-# Create dummy variables since snpnet and plink are not as smart as lm()
+# Create dummy variables since snpnet() and plink are not as smart as lm()
 X &lt;- model.matrix(get(response) ~ gen_sex + all_hatchyears + fiflok,
                   data = df2, )[, -1]
 covs &lt;- c(&quot;FGRM&quot;, colnames(X))
 df2[, covs[-1]] &lt;- X
 
-write.table(df2, 
+write.table(df2,
             file = paste0(&quot;pheno_&quot;, response, &quot;.txt&quot;),
             row.names = F,
             quote = F)</code></pre>
+<p>Looking at the dimensions of our data, we see that we have 1796
+observations of wing length, and around 23 covariates in the model.</p>
+<pre class="r"><code>dim(df2[, covs[-1]])</code></pre>
+<p>A plot of the response variable is given below.</p>
+<pre class="r"><code>ggplot(data = df2, aes(x = age1wing)) +
+  geom_histogram(bins = 50) + 
+  ggtitle(&#39;Histogram of the wing lengths (mm)&#39;)</code></pre>
+<pre class="r"><code>mean(df2$age1wing)
+sd(df2$age1wing)</code></pre>
+<p>We can see that the mean of the wing lengths is 79.7437mm with a
+standard deviation of 2.18876.</p>
 </div>
-</div>
-<div id="exploratory-data-analysis" class="section level2">
-<h2>Exploratory data analysis</h2>
 </div>
 <div id="introduction-to-methods" class="section level2">
 <h2>Introduction to methods</h2>
+<p>The aim of this analysis is to preform dimension reduction on the
+dataset to find a small subset of relevant SNPs; to do so we consider
+lasso regression. To define lasso regression, we let <span class="math inline">\(n\)</span> be the number of observations, <span class="math inline">\(p\)</span> be the number of covariates, and
+consider the standard regression setup using matrix notation:</p>
+<p><span class="math display">\[
+\boldsymbol{Y} = \boldsymbol{X}\boldsymbol{\beta}
++\boldsymbol{\epsilon},
+\]</span>where:</p>
+<ul>
+<li><p><span class="math inline">\(\boldsymbol{Y}\)</span> is a <span class="math inline">\(n\times1\)</span> vector of response variables (in
+our example the wing length),</p></li>
+<li><p><span class="math inline">\(\boldsymbol{X}\)</span> is a <span class="math inline">\(n\times p\)</span> design matrix with rows of
+observations and columns of covariates (in our example the
+SNPs),</p></li>
+<li><p><span class="math inline">\(\boldsymbol{\beta}\)</span> is a
+<span class="math inline">\(n\times1\)</span> vector of regression
+coefficients and</p></li>
+<li><p><span class="math inline">\(\boldsymbol{\epsilon}\)</span> is a
+<span class="math inline">\(n\times1\)</span> vector of random
+error.</p></li>
+</ul>
+<p>The aim at hand is to choose a subset of <span class="math inline">\(\boldsymbol{\beta}\)</span> that exhibit the
+strongest effect. We do this by imposing some shrinkage term on the
+<span class="math inline">\(\boldsymbol{\beta}\)</span>’s, such that
+some of them are set to <span class="math inline">\(0\)</span>. We then
+define the lasso coefficients as ones which minimize a penalized
+residual sum of squares.</p>
+<p><span class="math display">\[
+\hat{\boldsymbol{\beta}}_{lasso} =
+argmin_{\boldsymbol{\beta}}\left(\frac{1}{n}\left|\left|\boldsymbol{Y} -
+\boldsymbol{X}\boldsymbol{\beta}\right|\right|^2_2\right)
+\]</span></p>
+<p>subject to <span class="math inline">\(\left|\left|\boldsymbol{\beta}\right|\right|_1 \le
+t\)</span>. Or using Lagrangian notation gives:</p>
+<p><span class="math display">\[
+\hat{\boldsymbol{\beta}}_{lasso} = argmin_{\boldsymbol{\beta}}\left(
+\frac{1}{n}\left|\left|\boldsymbol{Y} -
+\boldsymbol{X}\boldsymbol{\beta}\right|\right|^2_2 -
+\lambda\left|\left|\boldsymbol{\beta}\right|\right|_1\right),
+\]</span>where <span class="math inline">\(\lambda \ge 0\)</span> is the
+term which controls shrinkage.</p>
+<p>After performing lasso regression, we are interested in determining
+the statistical strength of the selected SNPs. However doing this is
+difficult given that lasso regression already introduces a selection
+procedure on the variables. As a result, we consider multiple sample
+splitting to obtain p-values for the SNPs selected from lasso. Multiple
+sample splitting is a method for constructing hypothesis tests and
+confidence intervals when the dimensions of the dataset are high. Full
+details are provided in <span class="citation">(Dezeure et al.
+2015)</span>, and so we only show the algorithm for which to obtain the
+p-values below. The first step in finding corrected p-values using the
+single-sample splitting method, and then correcting them again using the
+multiple-sampling splitting procedure (which we do in order to account
+for the fact that the p-values selected in the former method are
+sensitive to the split of the data).</p>
+<p>Single-sample splitting:</p>
+<ol style="list-style-type: decimal">
+<li><p>Split the data in half, <span class="math inline">\(I_1\)</span>
+and <span class="math inline">\(I_2\)</span> where no observations are
+common between the two.</p></li>
+<li><p>Use <span class="math inline">\(I_1\)</span> for model selection
+with the lasso, with active variables <span class="math inline">\(\hat{S}\left(I_1\right)\)</span>.</p></li>
+<li><p>Use the variables in <span class="math inline">\(\hat{S}\left(I_1\right)\)</span> to conduct
+estimation using data <span class="math inline">\(I_2\)</span> with
+least-squares, and find <span class="math inline">\(m\)</span> p-values
+for the estimated coefficients.</p></li>
+<li><p>Correct the <span class="math inline">\(j^{th}\)</span> raw
+p-values for multiple testing using: <span class="math inline">\(P_{corr, j} = min\left(P_j *
+\left|S\left(I_1\right)\right|,1 \right)\)</span>.</p></li>
+</ol>
+<p>Multiple-sample splitting:</p>
+<ol style="list-style-type: decimal">
+<li><p>Run the single sample splitting <span class="math inline">\(B\)</span> times to obtain <span class="math inline">\(P_{corr, j}^{[b]}\)</span> for <span class="math inline">\(b = 1,2,…,B\)</span> and <span class="math inline">\(j = 1,2,…,m\)</span>.</p></li>
+<li><p>Then calculate <span class="math inline">\(Q_k\left({\gamma}\right) = min\left(\gamma -
+quantile\left(P_{corr, j}^{[b]}/\gamma ,b=1,2,...,B
+\right),1\right)\)</span> , where <span class="math inline">\(\gamma\)</span> is a general quantile.</p></li>
+</ol>
 </div>
 <div id="statistical-analysis" class="section level2">
 <h2>Statistical analysis</h2>
-<p>Do the analysis.</p>
-<pre class="r"><code>library(snpnet)
-
-configs &lt;- list(
-    # results.dir = &quot;PATH/TO/SAVE/DIR&quot;,  # needed when saving intermediate results
-    # save = TRUE,  # save intermediate results per iteration (default FALSE)
-    # nCores = 16,  # number of cores available (default 1)
-    # niter = 100,  # max number of iterations (default 50)
-    # prevIter = 15,  # if we want to start from some iteration saved in results.dir
-    # use.glmnetPlus = TRUE,  # recommended for faster computation
-    early.stopping = FALSE,  # whether to stop based on validation performance (default TRUE)
-    plink2.path = &quot;./plink2&quot;,   # path to plink2 program
-    zstdcat.path = &quot;zstdcat&quot;  # path to zstdcat program
-)
-
-# check if the provided paths are valid
-for (name in names(configs)) {
-    tryCatch(system(paste(configs[[name]], &quot;-h&quot;), ignore.stdout = T),
-             condition = function(e) cat(&quot;Please add&quot;, configs[[name]], &quot;to PATH, or modify the path in the configs list.&quot;)
-    )
-}
-
-configs$nCores &lt;- parallel::detectCores() - 1
-configs$use.glmnetPlus &lt;- TRUE
-configs$early.stopping &lt;- FALSE # to run all lambdas in each fold
-configs$stopping.lag &lt;- 100 # to run all lambdas in each fold
-configs$verbose &lt;- FALSE # shut up
-
-full_model &lt;- snpnet(genotype.pfile = &quot;sparrow_snps&quot;,
-                     phenotype.file = paste0(&quot;pheno_&quot;, response, &quot;.txt&quot;),
-                     phenotype = response,
-                     # Can add fixed effects here
-                     covariates = covs,
-                     # alpha = 1 means lasso, 0 means ridge, elastic net between
-                     alpha = 1, 
-                     nlambda = 100, # could increase for finer scale
-                     split.col = NULL, # no validation
-                     configs = configs)
-
-result &lt;- vector(&quot;list&quot;, num_folds)
-for (k in 1:num_folds) {
-  model &lt;- snpnet(genotype.pfile = &quot;sparrow_snps&quot;,
-                  phenotype.file = paste0(&quot;pheno_&quot;, response, &quot;.txt&quot;),
-                  phenotype = response,
-                  # Can add fixed effects here
-                  covariates = covs,
-                  # alpha = 1 means lasso, 0 means ridge, elastic net between
-                  alpha = 1, 
-                  lambda = full_model$full.lams, # make sure we check same lambdas
-                  split.col = paste0(&quot;fold&quot;, k), # cross-validation
-                  configs = configs)
-  result[[k]] &lt;- model
-}
-
-# Choose best lambda
-cv_metric &lt;- rowMeans(sapply(result, function(res) res$metric.val))
-opt_idx &lt;- which.max(cv_metric) # metric: R^2 in val. set
-opt_lambda &lt;- full_model$full.lams[opt_idx]
-
-# Non-zero betas in opt. model
-opt_betas &lt;- full_model$beta[[opt_idx]][full_model$beta[[opt_idx]] != 0] 
-
-# save result object for phillip
-save(full_model,
-     cv_metric, 
-     opt_idx, 
-     opt_lambda, 
-     opt_betas,
-     file = paste0(&quot;cv_model_&quot;, response, &quot;.RData&quot;))</code></pre>
 <pre class="r"><code>plot(full_model$full.lams,
-     cv_metric, 
-     xlab = &quot;lambda&quot;, 
+     cv_metric,
+     xlab = &quot;lambda&quot;,
      ylab = &quot;mean of 10 folds&#39; R^2 in val. set&quot;)
 abline(v = opt_lambda)
 
 # There is one large beta for wing length
 plot(opt_betas)
 
-plot(full_model$glmnet.results[[1]])
-
-system2(&quot;./plink2&quot;, 
-        paste0(&quot;--pfile vzs sparrow_snps --snps &quot;,
-               paste(substr(names(opt_betas),
-                            start = 1,
-                            stop = nchar(names(opt_betas)) - 2),
-                     collapse = &quot;, &quot;),
-               &quot; --pheno &quot;, paste0(&quot;pheno_&quot;, response, &quot;.txt&quot;),
-               &quot; --pheno-name &quot;, response,
-               &quot; --covar &quot;, paste0(&quot;pheno_&quot;, response, &quot;.txt&quot;),
-               &quot; --covar-name &quot;, paste(covs, collapse = &quot; &quot;),
-               &quot; --glm hide-covar&quot;))
-
-lm_res &lt;- data.table::fread(file = paste0(&quot;plink2.&quot;, response, &quot;.glm.linear&quot;))
-p_values &lt;- lm_res$P</code></pre>
-<div id="analysis-of-results" class="section level3">
-<h3>Analysis of results</h3>
-</div>
+plot(full_model$glmnet.results[[1]])</code></pre>
 </div>
 <div id="conclusion" class="section level2">
 <h2>Conclusion</h2>
+<p>We don’t find any evidence that any of the available SNPs are related
+to wing length. This makes sense because of the infinitesimal model,
+which is a standard assumption in quantitative genetics that complex
+traits are determined by multiple SNPs, and very small contributions by
+individual SNPs.</p>
 </div>
 <div id="bibliography" class="section level2 unnumbered">
 <h2 class="unnumbered">Bibliography</h2>
 <div id="refs" class="references csl-bib-body hanging-indent">
+<div id="ref-dezeure2015high" class="csl-entry">
+Dezeure, Ruben, Peter Bühlmann, Lukas Meier, and Nicolai Meinshausen.
+2015. <span>“High-Dimensional Inference: Confidence Intervals, p-Values
+and r-Software Hdi.”</span> <em>Statistical Science</em>, 533–58.
+</div>
 <div id="ref-friedman2010regularization" class="csl-entry">
 Friedman, Jerome, Trevor Hastie, and Rob Tibshirani. 2010.
 <span>“Regularization Paths for Generalized Linear Models via Coordinate
 Descent.”</span> <em>Journal of Statistical Software</em> 33 (1): 1.
+</div>
+<div id="ref-lundregan2018inferences" class="csl-entry">
+Lundregan, Sarah L, Ingerid J Hagen, Jostein Gohli, Alina K Niskanen,
+Petri Kemppainen, Thor Harald Ringsby, Thomas Kvalnes, et al. 2018.
+<span>“Inferences of Genetic Architecture of Bill Morphology in House
+Sparrow Using a High-Density SNP Array Point to a Polygenic
+Basis.”</span> <em>Molecular Ecology</em> 27 (17): 3498–3514.
 </div>
 <div id="ref-niskanen2020consistent" class="csl-entry">
 Niskanen, Alina K, Anna M Billing, Håkon Holand, Ingerid J Hagen, Yimen

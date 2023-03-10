@@ -138,9 +138,7 @@ We can see that the mean of the wing lengths is 79.7437mm with a standard deviat
 
 ## Introduction to methods
 
-The aim of this analysis is to preform dimension reduction on the dataset to find a small subset of relevant SNPs; to do so we consider lasso regression.
-
-Let $n$ be the number of observations, $p$ be the number of covariates, and consider the standard regression setup using matrix notation:
+The aim of this analysis is to preform dimension reduction on the dataset to find a small subset of relevant SNPs; to do so we consider lasso regression. To define lasso regression, we let $n$ be the number of observations, $p$ be the number of covariates, and consider the standard regression setup using matrix notation:
 
 $$
 \boldsymbol{Y} = \boldsymbol{X}\boldsymbol{\beta} +\boldsymbol{\epsilon},
@@ -166,11 +164,7 @@ $$
 \hat{\boldsymbol{\beta}}_{lasso} = argmin_{\boldsymbol{\beta}}\left( \frac{1}{n}\left|\left|\boldsymbol{Y} - \boldsymbol{X}\boldsymbol{\beta}\right|\right|^2_2 - \lambda\left|\left|\boldsymbol{\beta}\right|\right|_1\right),
 $$where $\lambda \ge 0$ is the term which controls shrinkage.
 
-Something on lasso + reference
-
-Cite paper (Ken)
-
-Multiple sample splitting + equation + look at paper
+After performing lasso regression, we are interested in determining the statistical strength of the selected SNPs. However doing this is difficult given that lasso regression already introduces a selection procedure on the variables. As a result, we consider multiple sample splitting to obtain p-values for the SNPs selected from lasso. Multiple sample splitting is a method for constructing hypothesis tests and confidence intervals when the dimensions of the dataset are high. Full details are provided in [@dezeure2015high], and so we only show the algorithm for which to obtain the p-values below. The first step in finding corrected p-values using the single-sample splitting method, and then correcting them again using the multiple-sampling splitting procedure (which we do in order to account for the fact that the p-values selected in the former method are sensitive to the split of the data).
 
 Single-sample splitting:
 
