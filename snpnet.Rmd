@@ -18,6 +18,13 @@ knitr::opts_chunk$set(echo = TRUE, eval = FALSE)
 
 # Introduction
 
+```{r load results, echo = FALSE}
+
+load('cv_model_age1wing.RData')
+load('sample_splitting_results.RData')
+
+```
+
 Evolutionary ecologists are interested in understanding the variation in the genetic architecture of populations of species in order to determine the traits which drive the fitness of a species. To do so, they use statistical analyses to study a significant number of single nucleotide polymorphisms (SNPs) common across a population. These SNPs represent a variation at a specific position in a DNA sequence and are indicative of the genetic diversity among individuals in the same population.
 
 In this analysis we use SNP data collected of house sparrow (*Passer domesticus*) on 8 islands at the Helgeland coast (Norway), studied in @niskanen2020consistent. These data have been collected since 1993 and contains a wide variety of different information: pedigree, genetic alongside morphological and life-history data [@lundregan2018inferences].
@@ -65,6 +72,7 @@ In this section we prepare the phenotype data (age 1 wing length).
 ```{r phenotype}
 # Load the data
 library(dplyr)
+
 df <- read.table("doi_10.5061_dryad.m0cfxpp10__v10/Data.txt",
                  header = T)
 
@@ -100,7 +108,7 @@ covs <- c("FGRM", colnames(X))
 df2[, covs[-1]] <- X
 ```
 
-Finally, we make the phenotype file that snpnet needs. 
+Finally, we make the phenotype file that snpnet needs.
 
 ```{r pheno_file}
 write.table(df2,
@@ -118,9 +126,9 @@ dim(df2[, covs[-1]])
 
 ```
 
-Some plots of the response variable are given below
+A plot of the response variable is given below.
 
-```{r EDA}
+```{r histo}
 
 plot(df2$IID, df2$age1wing)
 abline(h= mean(df2$age1wing), col = 'red')
@@ -137,43 +145,97 @@ ggplot(data = df2, aes(y = age1wing, x = factor(all_hatchyears))) +
 ggplot(data = df2, aes(y = age1wing, x = factor(fiflok))) +
   geom_boxplot()
 
+ggplot(data = df2, aes(x = age1wing)) +
+  geom_histogram(bins = 50) +
+  ggtitle('Histogram of the wing lengths (mm)')
+
 ```
 
+```{R mean-sd}
+
+mean(df2$age1wing)
+sd(df2$age1wing)
+
+```
+
+We can see that the mean of the wing lengths is 79.7437mm with a standard deviation of 2.18876.
+
 ## Introduction to methods
+
+The aim of this analysis is to preform dimension reduction on the dataset to find a small subset of relevant SNPs; to do so we consider lasso regression. To define lasso regression, we let $n$ be the number of observations, $p$ be the number of covariates, and consider the standard regression setup using matrix notation:
+
+$$
+\boldsymbol{Y} = \boldsymbol{X}\boldsymbol{\beta} +\boldsymbol{\epsilon},
+$$where:
+
+-   $\boldsymbol{Y}$ is a $n\times1$ vector of response variables (in our example the wing length),
+
+-   $\boldsymbol{X}$ is a $n\times p$ design matrix with rows of observations and columns of covariates (in our example the SNPs),
+
+-   $\boldsymbol{\beta}$ is a $n\times1$ vector of regression coefficients and
+
+-   $\boldsymbol{\epsilon}$ is a $n\times1$ vector of random error.
+
+The aim at hand is to choose a subset of $\boldsymbol{\beta}$ that exhibit the strongest effect. We do this by imposing some shrinkage term on the $\boldsymbol{\beta}$'s, such that some of them are set to $0$. We then define the lasso coefficients as ones which minimize a penalized residual sum of squares.
+
+$$
+\hat{\boldsymbol{\beta}}_{lasso} = argmin_{\boldsymbol{\beta}}\left(\frac{1}{n}\left|\left|\boldsymbol{Y} - \boldsymbol{X}\boldsymbol{\beta}\right|\right|^2_2\right)
+$$
+
+subject to $\left|\left|\boldsymbol{\beta}\right|\right|_1 \le t$. Or using Lagrangian notation gives:
+
+$$
+\hat{\boldsymbol{\beta}}_{lasso} = argmin_{\boldsymbol{\beta}}\left( \frac{1}{n}\left|\left|\boldsymbol{Y} - \boldsymbol{X}\boldsymbol{\beta}\right|\right|^2_2 - \lambda\left|\left|\boldsymbol{\beta}\right|\right|_1\right),
+$$where $\lambda \ge 0$ is the term which controls shrinkage.
+
+After performing lasso regression, we are interested in determining the statistical strength of the selected SNPs. However doing this is difficult given that lasso regression already introduces a selection procedure on the variables. As a result, we consider multiple sample splitting to obtain p-values for the SNPs selected from lasso. Multiple sample splitting is a method for constructing hypothesis tests and confidence intervals when the dimensions of the dataset are high. Full details are provided in [@dezeure2015high], and so we only show the algorithm for which to obtain the p-values below. The first step in finding corrected p-values using the single-sample splitting method, and then correcting them again using the multiple-sampling splitting procedure (which we do in order to account for the fact that the p-values selected in the former method are sensitive to the split of the data).
+
+Single-sample splitting:
+
+1.  Split the data in half, $I_1$ and $I_2$ where no observations are common between the two.
+
+2.  Use $I_1$ for model selection with the lasso, with active variables $\hat{S}\left(I_1\right)$.
+
+3.  Use the variables in $\hat{S}\left(I_1\right)$ to conduct estimation using data $I_2$ with least-squares, and find $m$ p-values for the estimated coefficients.
+
+4.  Correct the $j^{th}$ raw p-values for multiple testing using: $P_{corr, j} = min\left(P_j * \left|S\left(I_1\right)\right|,1 \right)$.
+
+Multiple-sample splitting:
+
+1.  Run the single sample splitting $B$ times to obtain $P_{corr, j}^{[b]}$ for $b = 1,2,…,B$ and $j = 1,2,…,m$.
+
+2.  Then calculate $Q_k\left({\gamma}\right) = min\left(\gamma - quantile\left(P_{corr, j}^{[b]}/\gamma ,b=1,2,...,B \right),1\right)$ , where $\gamma$ is a general quantile.
 
 ## Statistical analysis
 
 ### Cross-validation for lasso parameter
 
 Write about why we did the CV outside. It would be computationally unfeasible to this ...
+```{r checkthings, echo = FALSE}
 
-```{r Lasso, echo = FALSE}
-library(snpnet)
-
-configs <- list(
-    # results.dir = "PATH/TO/SAVE/DIR",  # needed when saving intermediate results
-    # save = TRUE,  # save intermediate results per iteration (default FALSE)
-    # nCores = 16,  # number of cores available (default 1)
-    # niter = 100,  # max number of iterations (default 50)
-    # prevIter = 15,  # if we want to start from some iteration saved in results.dir
-    # use.glmnetPlus = TRUE,  # recommended for faster computation
-    early.stopping = FALSE,  # whether to stop based on validation performance (default TRUE)
-    plink2.path = "./plink2",   # path to plink2 program
-    zstdcat.path = "zstdcat"  # path to zstdcat program
-)
-
-# check if the provided paths are valid
 for (name in names(configs)) {
     tryCatch(system(paste(configs[[name]], "-h"), ignore.stdout = T),
              condition = function(e) cat("Please add", configs[[name]], "to PATH, or modify the path in the configs list.")
     )
 }
 
+```
+
+```{r Lasso, echo = FALSE}
+library(snpnet)
+
+configs <- list(
+    early.stopping = FALSE,
+    plink2.path = "./plink2",   
+    zstdcat.path = "zstdcat"
+)
+
+
 configs$nCores <- parallel::detectCores() - 1
 configs$use.glmnetPlus <- TRUE
-configs$early.stopping <- FALSE # to run all lambdas in each fold
-configs$stopping.lag <- 100 # to run all lambdas in each fold
-configs$verbose <- FALSE # shut up
+configs$early.stopping <- FALSE
+configs$stopping.lag <- 100
+configs$verbose <- FALSE
 
 full_model <- snpnet(genotype.pfile = "sparrow_snps",
                      phenotype.file = paste0("pheno_", response, ".txt"),
@@ -272,15 +334,15 @@ for (b in 1:B) {
   freqs <- data.table::fread(file = "chosen_snps.afreq",
                              select = "ALT_FREQS",
                              data.table = FALSE)
-  
+
   # Mean imputation
   for (snp in seq_len(ncol(raw))[-(1:2)]) {
     raw[is.na(raw[, snp]), snp] <- 2 * (1 - freqs[snp - 2, ])
   }
-  
+
   ls_df <- cbind(df2[match(raw$IID, df2$IID), c(covs)],
                    raw[, !colnames(raw) %in% "IID"])
-  
+
   ls_mod <- lm(PHENOTYPE ~ ., data = ls_df)
   p_v <- summary(ls_mod)$coefficients[, "Pr(>|t|)"]
   p_v <- p_v[substr(names(p_v), 1, 3) == "SNP"]
@@ -300,7 +362,7 @@ p_values_split_combined <- lapply(p_values_split, function(x) {
 
   df <- data.frame(p_val = rep(1, length(atleastonce))) # Non-chosen p-values=1
   rownames(df) <- atleastonce
-  
+
   # Record p-values for chosen SNPs
   for (snp in x$ID) {
     df$p_val[rownames(df) == snp] <- x$P_corr[x$ID == snp]
@@ -359,5 +421,7 @@ plot(full_model$glmnet.results[[1]])
 ```
 
 ## Conclusion
+
+We don't find any evidence that any of the available SNPs are related to wing length. This makes sense because of the infinitesimal model, which is a standard assumption in quantitative genetics that complex traits are determined by multiple SNPs, and very small contributions by individual SNPs.
 
 ## Bibliography
