@@ -18,15 +18,15 @@ knitr::opts_chunk$set(echo = TRUE, eval = FALSE)
 
 # Introduction
 
-Ecologists and genomicists are interested in understanding the variation in the genetic architecture of populations of species in order to determine the traits which drive the fitness of a species. To do so, they use statistical analyses to study a significant number of single nucleotide polymorphisms (SNPs) common across a population. These SNPs represent a variation at a specific position in a DNA sequence and are responsible for the diversity among species in the same population.
+Evolutionary ecologists are interested in understanding the variation in the genetic architecture of populations of species in order to determine the traits which drive the fitness of a species. To do so, they use statistical analyses to study a significant number of single nucleotide polymorphisms (SNPs) common across a population. These SNPs represent a variation at a specific position in a DNA sequence and are indicative of the genetic diversity among individuals in the same population.
 
-In this analysis we use SNP data collected of house sparrow (*Passer domesticus*) on 18 islands at the Helgeland coast (Norway), studied in @niskanen2020consistent. These data have been collected since 1993 and contains a wide variety of different information: pedigree, genetic alongside morphological and life-history data [@lundregan2018inferences].
+In this analysis we use SNP data collected of house sparrow (*Passer domesticus*) on 8 islands at the Helgeland coast (Norway), studied in @niskanen2020consistent. These data have been collected since 1993 and contains a wide variety of different information: pedigree, genetic alongside morphological and life-history data [@lundregan2018inferences].
 
-For this project, we focus on studying the genetic architecture of the house sparrows, analyzing which SNPs have a significant effect on the wing length of the sparrows. Genomic data is usually characterized by an incredibly large numbers of SNP effects, which makes finding the statistical effects of them on the response difficult. As a result, we use regularization techniques to find an optimal penalty term for our model. We then use sample splitting techniques to compute the *p-values* and associated confidence intervals for the effects of the SNPs.
+For this project, we focus on studying the genetic architecture of the house sparrows, analyzing which SNPs have a significant effect on the wing length of the sparrows (at age 1). Genomic data is usually characterized by a large numbers of SNPs, which makes finding their effects on the response difficult. As a result, we will here use regularization techniques to find an optimal penalty term for our model. We then use multiple sample splitting techniques to compute the *p-values* for the effects of the SNPs. We will also correct for the effects of sex, year of measurement, island of measurement and inbreeding coefficient (`FGRM`), and these non-SNP covariates will not be penalized in the lasso.
 
 ## Prerequisites
 
-`glmnet` [@friedman2010regularization] is a popular *R* package to fit lasso regression effectively. However the package struggles when both the sample size and number of predictor variables is incredibly large. As a result, we use `snpnet` [@snpnet], which is a bespoke *R* package designed to fit penalizing regression methods for individual-level genetic data such as those used in this example. `snpnet` is not on CRAN, and must therefore be installed using the following instructions provided [here](https://github.com/junyangq/snpnet).
+`glmnet` [@friedman2010regularization] is a popular *R* package to fit lasso regression effectively. However, the package struggles when both the sample size and number of predictor variables is incredibly large. As a result, we use `snpnet` [@snpnet], which is a bespoke *R* package designed to fit penalizing regression methods for individual-level genetic data such as those used in this example. `snpnet` is not on CRAN, and must therefore be installed using the following instructions provided [here](https://github.com/junyangq/snpnet).
 
 ```{r snpnet, eval = FALSE}
 library(devtools)
@@ -50,17 +50,17 @@ install_github("junyangq/snpnet", dependencies = TRUE)
 
 ### Genomic data
 
-Download the genomic data from @DataUsed. We will use the full SNP data set, in the files `Genotypes.map` and `Genotypes.ped`.
-
-We first prepare the data using PLINK v2. Download the `plink2` file from [here](https://www.cog-genomics.org/plink/2.0/) and put it in your working folder. We now do the standard quality control steps (remove SNPs with minor allele frequency lower than $0.01$, remove SNPs missing in more than $10\%$ of individuals and remove individuals missing more than $5\%$ of the SNPs). This might be unnecessary because `snpnet` does this in-built. We also change the dataset to the input format that `snpnet` needs.
+We will use the full SNP data set, in the files `Genotypes.map` and `Genotypes.ped`. We first prepare the data using PLINK v2. To run our code, you need to download the genomic data and phenotype data from @DataUsed and the program `plink2` from [here](https://www.cog-genomics.org/plink/2.0/) and put it in your working folder. We do some standard quality control steps (remove SNPs with minor allele frequency lower than $0.01$, remove SNPs missing in more than $10\%$ of individuals and remove individuals missing more than $5\%$ of the SNPs). We also change the dataset to the input format that `snpnet` needs.
 
 ```{r plink}
 system2("./plink2", "--pedmap doi_10.5061_dryad.m0cfxpp10__v10/Genotypes --chr-set 32 --out sparrow_snps --maf 0.01 --geno 0.1 --mind 0.05 --make-pgen vzs")
 ```
 
-Running this script shows that we have 183155 SNPs to use in our analysis. Due to practical and computational reasons, these data will not be loaded into the *R* session, and so no graphical summary is available on them.
+Running this script shows that we have 183155 SNPs to use in our analysis. For memory reasons, the full data set will not be loaded into the *R* session, and so no graphical summary is available on them.
 
 ### Phenotype data
+
+In this section we prepare the phenotype data (age 1 wing length).
 
 ```{r phenotype}
 # Load the data
@@ -68,11 +68,14 @@ library(dplyr)
 df <- read.table("doi_10.5061_dryad.m0cfxpp10__v10/Data.txt",
                  header = T)
 
-response = "age1wing" # or age1tarsus, age1mass, ....
+response = "age1wing"
 
 df2 <- select(df[!is.na(df[, response]), ], c(response, "FGRM", "gen_sex", "all_hatchyears", "fiflok"))
+```
 
-# Create CV splits
+We create some columns to indicate our cross-validation splits.
+
+```{r cv}
 num_folds <- 10
 df2[paste0("fold", 1:num_folds)] = NA
 s <- dim(df2)[1] %>%
@@ -81,9 +84,11 @@ s <- dim(df2)[1] %>%
   cut(breaks = num_folds)
 df2[, paste0("fold", 1:num_folds)] <-
   sapply(1:10, function(fold) ifelse(s == levels(s)[fold], "val", "train"))
+```
 
-# Make the file that snpnet needs
+We add the non-penalized covariates to the data.
 
+```{r covs}
 df2 <- cbind(data.frame(FID = 1, IID = df$id[!is.na(df[, response])]), df2)
 df2$gen_sex <- as.factor(df2$gen_sex)
 df2$all_hatchyears <- as.factor(df2$all_hatchyears)
@@ -93,7 +98,11 @@ X <- model.matrix(get(response) ~ gen_sex + all_hatchyears + fiflok,
                   data = df2, )[, -1]
 covs <- c("FGRM", colnames(X))
 df2[, covs[-1]] <- X
+```
 
+Finally, we make the phenotype file that snpnet needs. 
+
+```{r pheno_file}
 write.table(df2,
             file = paste0("pheno_", response, ".txt"),
             row.names = F,
@@ -109,12 +118,24 @@ dim(df2[, covs[-1]])
 
 ```
 
-A plot of the response variable is given below
+Some plots of the response variable are given below
 
 ```{r EDA}
 
 plot(df2$IID, df2$age1wing)
 abline(h= mean(df2$age1wing), col = 'red')
+plot(density(df2$age1wing))
+
+par(mfrow = c(1,3))
+
+ggplot(data = df2, aes(y = age1wing, x = factor(gen_sex))) +
+  geom_boxplot()
+
+ggplot(data = df2, aes(y = age1wing, x = factor(all_hatchyears))) +
+  geom_boxplot()
+
+ggplot(data = df2, aes(y = age1wing, x = factor(fiflok))) +
+  geom_boxplot()
 
 ```
 
@@ -122,7 +143,9 @@ abline(h= mean(df2$age1wing), col = 'red')
 
 ## Statistical analysis
 
-Do the analysis.
+### Cross-validation for lasso parameter
+
+Write about why we did the CV outside. It would be computationally unfeasible to this ...
 
 ```{r Lasso, echo = FALSE}
 library(snpnet)
@@ -196,20 +219,7 @@ save(full_model,
 
 ```
 
-```{r, plot}
-
-plot(full_model$full.lams,
-     cv_metric,
-     xlab = "lambda",
-     ylab = "mean of 10 folds' R^2 in val. set")
-abline(v = opt_lambda)
-
-# There is one large beta for wing length
-plot(opt_betas)
-
-plot(full_model$glmnet.results[[1]])
-
-```
+### Multiple sample splitting
 
 ```{r ss, echo=FALSE}
 
@@ -251,18 +261,35 @@ for (b in 1:B) {
                        collapse = ", "),
                  " --pheno ", paste0("pheno_ss!_", response, ".txt"),
                  " --pheno-name ", response,
-                 " --covar ", paste0("pheno_ss!_", response, ".txt"),
-                 " --covar-name ", paste(covs, collapse = " "),
-                 " --glm hide-covar"))
+                 " --export A",
+                 " --require-pheno ", response,
+                 " --freq",
+                 " --out chosen_snps"))
 
-  lm_res <- data.table::fread(file = paste0("plink2.", response, ".glm.linear"))
-  p_values_split[[b]] <- data.frame(ID = lm_res$ID,
-                              # Correct for multiple testing
-                              P_corr = pmin(lm_res$P * dim(lm_res)[1], 1))
-
-  rm(lm_res)
+  raw <- data.table::fread(file = "chosen_snps.raw",
+                           drop = c(1, 3, 4, 5),
+                           data.table = FALSE)
+  freqs <- data.table::fread(file = "chosen_snps.afreq",
+                             select = "ALT_FREQS",
+                             data.table = FALSE)
+  
+  # Mean imputation
+  for (snp in seq_len(ncol(raw))[-(1:2)]) {
+    raw[is.na(raw[, snp]), snp] <- 2 * (1 - freqs[snp - 2, ])
+  }
+  
+  ls_df <- cbind(df2[match(raw$IID, df2$IID), c(covs)],
+                   raw[, !colnames(raw) %in% "IID"])
+  
+  ls_mod <- lm(PHENOTYPE ~ ., data = ls_df)
+  p_v <- summary(ls_mod)$coefficients[, "Pr(>|t|)"]
+  p_v <- p_v[substr(names(p_v), 1, 3) == "SNP"]
+  p_values_split[[b]] <- data.frame(ID = names(p_v),
+                                    # Correct for multiple testing
+                                    P_corr = pmin(p_v * length(p_v), 1))
+  # summary(dflm_r)$coefficients[, "Pr(>|t|)"]
+  rm(ls_mod, raw, ss_model, ls_df, p_v)
   gc()
-
 }
 
 # All SNPs with non-zero beta for in at least one split
@@ -311,6 +338,23 @@ save(p_values_split_combined,
      Q_gamma,
      P_val_final,
      file = "sample_splitting_results.RData")
+
+```
+
+## Results
+
+```{r, plot}
+
+plot(full_model$full.lams,
+     cv_metric,
+     xlab = "lambda",
+     ylab = "mean of 10 folds' R^2 in val. set")
+abline(v = opt_lambda)
+
+# There is one large beta for wing length
+plot(opt_betas)
+
+plot(full_model$glmnet.results[[1]])
 
 ```
 
