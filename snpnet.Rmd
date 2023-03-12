@@ -151,18 +151,11 @@ ggplot(data = df2, aes(x = age1wing)) +
 
 ```
 
-```{R mean-sd}
-
-mean(df2$age1wing)
-sd(df2$age1wing)
-
-```
-
-We can see that the mean of the wing lengths is 79.7437mm with a standard deviation of 2.18876.
+We can see that the mean of the wing lengths is `mean(df2$age1wing)`mm with a standard deviation of `sd(df2$age1wing)`mm.
 
 ## Introduction to methods
 
-The aim of this analysis is to preform dimension reduction on the dataset to find a small subset of relevant SNPs; to do so we consider lasso regression. To define lasso regression, we let $n$ be the number of observations, $p$ be the number of covariates, and consider the standard regression setup using matrix notation:
+The aim of this analysis is to perform dimension reduction on the dataset to find a small subset of relevant SNPs; to do so we consider lasso regression. To define lasso regression, we let $n$ be the number of observations, $p$ be the number of covariates, and consider the standard regression setup using matrix notation:
 
 $$
 \boldsymbol{Y} = \boldsymbol{X}\boldsymbol{\beta} +\boldsymbol{\epsilon},
@@ -204,13 +197,19 @@ Multiple-sample splitting:
 
 1.  Run the single sample splitting $B$ times to obtain $P_{corr, j}^{[b]}$ for $b = 1,2,…,B$ and $j = 1,2,…,m$.
 
-2.  Then calculate $Q_k\left({\gamma}\right) = min\left(\gamma - quantile\left(P_{corr, j}^{[b]}/\gamma ,b=1,2,...,B \right),1\right)$ , where $\gamma$ is a general quantile.
+2.  Then calculate $Q_j \left({\gamma}\right) = \min \left( 1, \text{quantile}_\gamma\left(P_{corr, j}^{[b]}/\gamma \right)_{b=1}^B\\right)$ , for values of $\gamma$ in $(\gamma_\text{min} , 1)$, where $\gamma_\text{min}$ is typically $0.05$.
+
+3. Finally, correct for trying many different values of $\gamma$ by multiplying by $(1 - \log(\gamma_\text{min}))$, to obtain the final p-values:
+$$
+\text{p-value}_j = \min(1, (1 - \log(\gamma_\text{min}))\cdot \min_\gamma( Q_j \left({\gamma}\right)))
+$$
 
 ## Statistical analysis
 
 ### Cross-validation for lasso parameter
 
-Write about why we did the CV outside. It would be computationally unfeasible to this ...
+When performing lasso-regression we need to choose a value for the penalization parameter $\lambda$. We use cross-validation for this. Preferably the cross-validation loop should happen inside the multiple sample-splitting procedure to generate a new $\lambda$ for each split, but in the interest of computational time we pre-compute a global $\lambda$ to be used in all splits. Below is the code for the cross-validation for $\lambda$.
+
 ```{r checkthings, echo = FALSE}
 
 for (name in names(configs)) {
@@ -237,6 +236,7 @@ configs$early.stopping <- FALSE
 configs$stopping.lag <- 100
 configs$verbose <- FALSE
 
+# Full solution path
 full_model <- snpnet(genotype.pfile = "sparrow_snps",
                      phenotype.file = paste0("pheno_", response, ".txt"),
                      phenotype = response,
@@ -244,21 +244,21 @@ full_model <- snpnet(genotype.pfile = "sparrow_snps",
                      covariates = covs,
                      # alpha = 1 means lasso, 0 means ridge, elastic net between
                      alpha = 1,
-                     nlambda = 100, # could increase for finer scale
+                     nlambda = 100, # How many values of lambda to try
                      split.col = NULL, # no validation
                      configs = configs)
 
+# Cross-validation
 result <- vector("list", num_folds)
 for (k in 1:num_folds) {
   model <- snpnet(genotype.pfile = "sparrow_snps",
                   phenotype.file = paste0("pheno_", response, ".txt"),
                   phenotype = response,
-                  # Can add fixed effects here
-                  covariates = covs,
+                  covariates = covs, # Add fixed unpenalized effects here
                   # alpha = 1 means lasso, 0 means ridge, elastic net between
                   alpha = 1,
-                  lambda = full_model$full.lams, # make sure we check same lambdas
-                  split.col = paste0("fold", k), # cross-validation
+                  lambda = full_model$full.lams, # Check same lambdas as full
+                  split.col = paste0("fold", k), # Cross-validation columns
                   configs = configs)
   result[[k]] <- model
 }
@@ -283,6 +283,8 @@ save(full_model,
 
 ### Multiple sample splitting
 
+Below we perform the multiple sample splitting and generate p-values.
+
 ```{r ss, echo=FALSE}
 
 configs$early.stopping <- TRUE
@@ -290,13 +292,16 @@ B <- 1e3
 p_values_split <- vector("list", B)
 
 for (b in 1:B) {
+  # Split sample in two
   split <- sample(x = df2$IID, size = round(length(df2$IID) / 2))
 
+  # Write file for lasso-half of sample
   write.table(df2[df2$IID %in% split, ],
               file = paste0("pheno_ss_", response, ".txt"),
               row.names = F,
               quote = F)
 
+  # Lasso-model with a given lambda
   ss_model <- snpnet(genotype.pfile = "sparrow_snps",
                      phenotype.file = paste0("pheno_ss_", response, ".txt"),
                      phenotype = response,
@@ -308,13 +313,16 @@ for (b in 1:B) {
                      split.col = NULL, # cross-validation
                      configs = configs)
 
+  # Non-zero betas
   ss_betas <-  ss_model$beta[[1]][ss_model$beta[[1]] != 0][-(1:(length(covs)))]
 
+  # Write phenotype file for least squares half of sample
   write.table(df2[!df2$IID %in% split, ],
               file = paste0("pheno_ss!_", response, ".txt"),
               row.names = F,
               quote = F)
 
+  # Write genomic file for least squares half of sample
   system2("./plink2",
           paste0("--pfile vzs sparrow_snps --snps ",
                  paste(substr(names(ss_betas),
@@ -328,9 +336,11 @@ for (b in 1:B) {
                  " --freq",
                  " --out chosen_snps"))
 
+  # Load genomic data
   raw <- data.table::fread(file = "chosen_snps.raw",
                            drop = c(1, 3, 4, 5),
                            data.table = FALSE)
+  # Load allele frequencies
   freqs <- data.table::fread(file = "chosen_snps.afreq",
                              select = "ALT_FREQS",
                              data.table = FALSE)
@@ -340,16 +350,19 @@ for (b in 1:B) {
     raw[is.na(raw[, snp]), snp] <- 2 * (1 - freqs[snp - 2, ])
   }
 
+  # Data object for linear regression
   ls_df <- cbind(df2[match(raw$IID, df2$IID), c(covs)],
                    raw[, !colnames(raw) %in% "IID"])
 
+  # Perform linear regression
   ls_mod <- lm(PHENOTYPE ~ ., data = ls_df)
+  # Save SNP p-values
   p_v <- summary(ls_mod)$coefficients[, "Pr(>|t|)"]
   p_v <- p_v[substr(names(p_v), 1, 3) == "SNP"]
   p_values_split[[b]] <- data.frame(ID = names(p_v),
                                     # Correct for multiple testing
                                     P_corr = pmin(p_v * length(p_v), 1))
-  # summary(dflm_r)$coefficients[, "Pr(>|t|)"]
+  # Garbage collection
   rm(ls_mod, raw, ss_model, ls_df, p_v)
   gc()
 }
@@ -376,7 +389,7 @@ colnames(p_values_split_combined) <-
   paste0(colnames(p_values_split_combined), "_", 1:B)
 
 # Find Q_gamma for various values of gamma (i.e. correct for multiple splitting)
-gamma_min <- 0.05 # Minimum check quantile
+gamma_min <- 0.05 # Minimum quantile we check
 gamma <- seq(from = gamma_min, by = 0.01, to = 1)
 Q_gamma <- as.data.frame(lapply(X = gamma,
                                 FUN = function(g) {
@@ -396,6 +409,7 @@ P_val_final <- pmin(1, apply(as.data.frame(Q_gamma),
 
 names(P_val_final) <- atleastonce
 
+# Save results
 save(p_values_split_combined,
      Q_gamma,
      P_val_final,
@@ -422,6 +436,6 @@ plot(full_model$glmnet.results[[1]])
 
 ## Conclusion
 
-We don't find any evidence that any of the available SNPs are related to wing length. This makes sense because of the infinitesimal model, which is a standard assumption in quantitative genetics that complex traits are determined by multiple SNPs, and very small contributions by individual SNPs.
+We don't find evidence that any of the available SNPs are related to wing length. This makes sense because of the infinitesimal model, which is a standard assumption in quantitative genetics that complex traits are determined by multiple SNPs, and very small contributions by individual SNPs. Presumably we need a larger sample size to detect the influence of individual SNPs.
 
 ## Bibliography
