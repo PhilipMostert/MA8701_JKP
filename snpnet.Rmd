@@ -197,12 +197,11 @@ Multiple-sample splitting:
 
 1.  Run the single sample splitting $B$ times to obtain $P_{corr, j}^{[b]}$ for $b = 1,2,…,B$ and $j = 1,2,…,m$.
 
-2.  Then calculate $Q_j \left({\gamma}\right) = \min \left( 1, \text{quantile}_\gamma\left(P_{corr, j}^{[b]}/\gamma \right)_{b=1}^B\\right)$ , for values of $\gamma$ in $(\gamma_\text{min} , 1)$, where $\gamma_\text{min}$ is typically $0.05$.
+2.  Then calculate $Q_j \left({\gamma}\right) = \min \left( 1, \text{quantile}_\gamma\left(P_{corr, j}^{[b]}/\gamma \right)_{b=1}^B\right)$ , for values of $\gamma$ in $(\gamma_\text{min} , 1)$, where $\gamma_\text{min}$ is typically $0.05$.
 
-3. Finally, correct for trying many different values of $\gamma$ by multiplying by $(1 - \log(\gamma_\text{min}))$, to obtain the final p-values:
-$$
-\text{p-value}_j = \min(1, (1 - \log(\gamma_\text{min}))\cdot \min_\gamma( Q_j \left({\gamma}\right)))
-$$
+3.  Finally, correct for trying many different values of $\gamma$ by multiplying by $(1 - \log(\gamma_\text{min}))$, to obtain the final p-values: $$
+    \text{p-value}_j = \min(1, (1 - \log(\gamma_\text{min}))\cdot \min_\gamma( Q_j \left({\gamma}\right)))
+    $$
 
 ## Statistical analysis
 
