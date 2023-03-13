@@ -439,6 +439,6 @@ plot(full_model$glmnet.results[[1]])
 
 ## Conclusion
 
-We don't find evidence that any of the available SNPs are related to wing length. This makes sense because of the infinitesimal model, which is a standard assumption in quantitative genetics that complex traits are determined by multiple SNPs, and very small contributions by individual SNPs. Presumably we need a larger sample size to detect the influence of individual SNPs.
+All our computed p-values equal $1$, so we don't find evidence that any of the available SNPs are related to wing length. In other words, a null result. If we had found significant SNPs we would have wanted to verify their effect in an independent test-set, but this is not relevant here due to our null result. This result is not too suprising, due of the infinitesimal model, which is a standard assumption in quantitative genetics that complex traits are determined by a large number of SNPs, each with a very small contributions by individual SNPs. If each SNP has a very small effect, we would presumably need a larger sample size to detect the influence of individual SNPs.
 
 ## Bibliography
