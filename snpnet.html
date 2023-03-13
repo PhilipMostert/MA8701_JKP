@@ -10,7 +10,7 @@
 
 
 
-<meta name="date" content="2023-03-10" />
+<meta name="date" content="2023-03-13" />
 
 <title>MA8701: Advanced statistical methods in inference and learning</title>
 
@@ -378,22 +378,23 @@ inference and learning</h1>
 <h4 class="author">Philip Stanley Mostert</h4>
 <h4 class="author">Kenneth Aase</h4>
 <h4 class="author">Group: JKP</h4>
-<h4 class="date">10 March 2023</h4>
+<h4 class="date">13 March 2023</h4>
 
 </div>
 
 
 <div id="introduction" class="section level1">
 <h1>Introduction</h1>
-<p>Ecologists and genomicists are interested in understanding the
-variation in the genetic architecture of populations of species in order
-to determine the traits which drive the fitness of a species. To do so,
+<p>Evolutionary ecologists are interested in understanding the variation
+in the genetic architecture of populations of species in order to
+determine the traits which drive the fitness of a species. To do so,
 they use statistical analyses to study a significant number of single
 nucleotide polymorphisms (SNPs) common across a population. These SNPs
 represent a variation at a specific position in a DNA sequence and are
-responsible for the diversity among species in the same population.</p>
+indicative of the genetic diversity among individuals in the same
+population.</p>
 <p>In this analysis we use SNP data collected of house sparrow
-(<em>Passer domesticus</em>) on 18 islands at the Helgeland coast
+(<em>Passer domesticus</em>) on 8 islands at the Helgeland coast
 (Norway), studied in <span class="citation">Niskanen et al.
 (2020)</span>. These data have been collected since 1993 and contains a
 wide variety of different information: pedigree, genetic alongside
@@ -401,18 +402,20 @@ morphological and life-history data <span class="citation">(Lundregan et
 al. 2018)</span>.</p>
 <p>For this project, we focus on studying the genetic architecture of
 the house sparrows, analyzing which SNPs have a significant effect on
-the wing length of the sparrows. Genomic data is usually characterized
-by an incredibly large numbers of SNP effects, which makes finding the
-statistical effects of them on the response difficult. As a result, we
-use regularization techniques to find an optimal penalty term for our
-model. We then use sample splitting techniques to compute the
-<em>p-values</em> and associated confidence intervals for the effects of
-the SNPs.</p>
+the wing length of the sparrows (at age 1). Genomic data is usually
+characterized by a large numbers of SNPs, which makes finding their
+effects on the response difficult. As a result, we will here use
+regularization techniques to find an optimal penalty term for our model.
+We then use multiple sample splitting techniques to compute the
+<em>p-values</em> for the effects of the SNPs. We will also correct for
+the effects of sex, year of measurement, island of measurement and
+inbreeding coefficient (<code>FGRM</code>), and these non-SNP covariates
+will not be penalized in the lasso.</p>
 <div id="prerequisites" class="section level2">
 <h2>Prerequisites</h2>
 <p><code>glmnet</code> <span class="citation">(Friedman, Hastie, and
 Tibshirani 2010)</span> is a popular <em>R</em> package to fit lasso
-regression effectively. However the package struggles when both the
+regression effectively. However, the package struggles when both the
 sample size and number of predictor variables is incredibly large. As a
 result, we use <code>snpnet</code> <span class="citation">(Qian, Hastie,
 and Tanigawa 2023)</span>, which is a bespoke <em>R</em> package
@@ -440,49 +443,47 @@ install_github(&quot;junyangq/snpnet&quot;, dependencies = TRUE)</code></pre>
 <h2>Data</h2>
 <div id="genomic-data" class="section level3">
 <h3>Genomic data</h3>
-<p>Download the genomic data from <span class="citation">Niskanen et al.
-(2023)</span>. We will use the full SNP data set, in the files
-<code>Genotypes.map</code> and <code>Genotypes.ped</code>.</p>
-<p>We first prepare the data using PLINK v2. Download the
-<code>plink2</code> file from <a href="https://www.cog-genomics.org/plink/2.0/">here</a> and put it in
-your working folder. We now do the standard quality control steps
-(remove SNPs with minor allele frequency lower than <span class="math inline">\(0.01\)</span>, remove SNPs missing in more than
+<p>We will use the full SNP data set, in the files
+<code>Genotypes.map</code> and <code>Genotypes.ped</code>. We first
+prepare the data using PLINK v2. To run our code, you need to download
+the genomic data and phenotype data from <span class="citation">Niskanen
+et al. (2023)</span> and the program <code>plink2</code> from <a href="https://www.cog-genomics.org/plink/2.0/">here</a> and put it in
+your working folder. We do some standard quality control steps (remove
+SNPs with minor allele frequency lower than <span class="math inline">\(0.01\)</span>, remove SNPs missing in more than
 <span class="math inline">\(10\%\)</span> of individuals and remove
 individuals missing more than <span class="math inline">\(5\%\)</span>
-of the SNPs). This might be unnecessary because <code>snpnet</code> does
-this in-built. We also change the dataset to the input format that
+of the SNPs). We also change the dataset to the input format that
 <code>snpnet</code> needs.</p>
 <pre class="r"><code>system2(&quot;./plink2&quot;, &quot;--pedmap doi_10.5061_dryad.m0cfxpp10__v10/Genotypes --chr-set 32 --out sparrow_snps --maf 0.01 --geno 0.1 --mind 0.05 --make-pgen vzs&quot;)</code></pre>
 <p>Running this script shows that we have 183155 SNPs to use in our
-analysis. Due to practical and computational reasons, these data will
-not be loaded into the <em>R</em> session, and so no graphical summary
-is available on them.</p>
+analysis. For memory reasons, the full data set will not be loaded into
+the <em>R</em> session, and so no graphical summary is available on
+them.</p>
 </div>
 <div id="phenotype-data" class="section level3">
 <h3>Phenotype data</h3>
+<p>In this section we prepare the phenotype data (age 1 wing
+length).</p>
 <pre class="r"><code># Load the data
 library(dplyr)
 
 df &lt;- read.table(&quot;doi_10.5061_dryad.m0cfxpp10__v10/Data.txt&quot;,
                  header = T)
 
-response = &quot;age1wing&quot; # or age1tarsus, age1mass, ....
+response = &quot;age1wing&quot;
 
-df2 &lt;- select(df[!is.na(df[, response]), ], c(response, &quot;FGRM&quot;, &quot;gen_sex&quot;, &quot;all_hatchyears&quot;, &quot;fiflok&quot;))
-
-# Create CV splits
-num_folds &lt;- 10
+df2 &lt;- select(df[!is.na(df[, response]), ], c(response, &quot;FGRM&quot;, &quot;gen_sex&quot;, &quot;all_hatchyears&quot;, &quot;fiflok&quot;))</code></pre>
+<p>We create some columns to indicate our cross-validation splits.</p>
+<pre class="r"><code>num_folds &lt;- 10
 df2[paste0(&quot;fold&quot;, 1:num_folds)] = NA
 s &lt;- dim(df2)[1] %&gt;%
   seq_len() %&gt;%
   sample() %&gt;%
   cut(breaks = num_folds)
 df2[, paste0(&quot;fold&quot;, 1:num_folds)] &lt;-
-  sapply(1:10, function(fold) ifelse(s == levels(s)[fold], &quot;val&quot;, &quot;train&quot;))
-
-# Make the file that snpnet needs
-
-df2 &lt;- cbind(data.frame(FID = 1, IID = df$id[!is.na(df[, response])]), df2)
+  sapply(1:10, function(fold) ifelse(s == levels(s)[fold], &quot;val&quot;, &quot;train&quot;))</code></pre>
+<p>We add the non-penalized covariates to the data.</p>
+<pre class="r"><code>df2 &lt;- cbind(data.frame(FID = 1, IID = df$id[!is.na(df[, response])]), df2)
 df2$gen_sex &lt;- as.factor(df2$gen_sex)
 df2$all_hatchyears &lt;- as.factor(df2$all_hatchyears)
 df2$fiflok &lt;- as.factor(df2$fiflok)
@@ -490,9 +491,9 @@ df2$fiflok &lt;- as.factor(df2$fiflok)
 X &lt;- model.matrix(get(response) ~ gen_sex + all_hatchyears + fiflok,
                   data = df2, )[, -1]
 covs &lt;- c(&quot;FGRM&quot;, colnames(X))
-df2[, covs[-1]] &lt;- X
-
-write.table(df2,
+df2[, covs[-1]] &lt;- X</code></pre>
+<p>Finally, we make the phenotype file that snpnet needs.</p>
+<pre class="r"><code>write.table(df2,
             file = paste0(&quot;pheno_&quot;, response, &quot;.txt&quot;),
             row.names = F,
             quote = F)</code></pre>
@@ -500,18 +501,32 @@ write.table(df2,
 observations of wing length, and around 23 covariates in the model.</p>
 <pre class="r"><code>dim(df2[, covs[-1]])</code></pre>
 <p>A plot of the response variable is given below.</p>
-<pre class="r"><code>ggplot(data = df2, aes(x = age1wing)) +
-  geom_histogram(bins = 50) + 
+<pre class="r"><code>plot(df2$IID, df2$age1wing)
+abline(h= mean(df2$age1wing), col = &#39;red&#39;)
+plot(density(df2$age1wing))
+
+par(mfrow = c(1,3))
+
+ggplot(data = df2, aes(y = age1wing, x = factor(gen_sex))) +
+  geom_boxplot()
+
+ggplot(data = df2, aes(y = age1wing, x = factor(all_hatchyears))) +
+  geom_boxplot()
+
+ggplot(data = df2, aes(y = age1wing, x = factor(fiflok))) +
+  geom_boxplot()
+
+ggplot(data = df2, aes(x = age1wing)) +
+  geom_histogram(bins = 50) +
   ggtitle(&#39;Histogram of the wing lengths (mm)&#39;)</code></pre>
-<pre class="r"><code>mean(df2$age1wing)
-sd(df2$age1wing)</code></pre>
-<p>We can see that the mean of the wing lengths is 79.7437mm with a
-standard deviation of 2.18876.</p>
+<p>We can see that the mean of the wing lengths is
+<code>mean(df2$age1wing)</code>mm with a standard deviation of
+<code>sd(df2$age1wing)</code>mm.</p>
 </div>
 </div>
 <div id="introduction-to-methods" class="section level2">
 <h2>Introduction to methods</h2>
-<p>The aim of this analysis is to preform dimension reduction on the
+<p>The aim of this analysis is to perform dimension reduction on the
 dataset to find a small subset of relevant SNPs; to do so we consider
 lasso regression. To define lasso regression, we let <span class="math inline">\(n\)</span> be the number of observations, <span class="math inline">\(p\)</span> be the number of covariates, and
 consider the standard regression setup using matrix notation:</p>
@@ -584,13 +599,37 @@ p-values for multiple testing using: <span class="math inline">\(P_{corr, j} = m
 <p>Multiple-sample splitting:</p>
 <ol style="list-style-type: decimal">
 <li><p>Run the single sample splitting <span class="math inline">\(B\)</span> times to obtain <span class="math inline">\(P_{corr, j}^{[b]}\)</span> for <span class="math inline">\(b = 1,2,…,B\)</span> and <span class="math inline">\(j = 1,2,…,m\)</span>.</p></li>
-<li><p>Then calculate <span class="math inline">\(Q_k\left({\gamma}\right) = min\left(\gamma -
-quantile\left(P_{corr, j}^{[b]}/\gamma ,b=1,2,...,B
-\right),1\right)\)</span> , where <span class="math inline">\(\gamma\)</span> is a general quantile.</p></li>
+<li><p>Then calculate <span class="math inline">\(Q_j
+\left({\gamma}\right) = \min \left( 1,
+\text{quantile}_\gamma\left(P_{corr, j}^{[b]}/\gamma
+\right)_{b=1}^B\\right)\)</span> , for values of <span class="math inline">\(\gamma\)</span> in <span class="math inline">\((\gamma_\text{min} , 1)\)</span>, where <span class="math inline">\(\gamma_\text{min}\)</span> is typically <span class="math inline">\(0.05\)</span>.</p></li>
+<li><p>Finally, correct for trying many different values of <span class="math inline">\(\gamma\)</span> by multiplying by <span class="math inline">\((1 - \log(\gamma_\text{min}))\)</span>, to obtain
+the final p-values: <span class="math display">\[
+\text{p-value}_j = \min(1, (1 - \log(\gamma_\text{min}))\cdot
+\min_\gamma( Q_j \left({\gamma}\right)))
+\]</span></p></li>
 </ol>
 </div>
 <div id="statistical-analysis" class="section level2">
 <h2>Statistical analysis</h2>
+<div id="cross-validation-for-lasso-parameter" class="section level3">
+<h3>Cross-validation for lasso parameter</h3>
+<p>When performing lasso-regression we need to choose a value for the
+penalization parameter <span class="math inline">\(\lambda\)</span>. We
+use cross-validation for this. Preferably the cross-validation loop
+should happen inside the multiple sample-splitting procedure to generate
+a new <span class="math inline">\(\lambda\)</span> for each split, but
+in the interest of computational time we pre-compute a global <span class="math inline">\(\lambda\)</span> to be used in all splits. Below
+is the code for the cross-validation for <span class="math inline">\(\lambda\)</span>.</p>
+</div>
+<div id="multiple-sample-splitting" class="section level3">
+<h3>Multiple sample splitting</h3>
+<p>Below we perform the multiple sample splitting and generate
+p-values.</p>
+</div>
+</div>
+<div id="results" class="section level2">
+<h2>Results</h2>
 <pre class="r"><code>plot(full_model$full.lams,
      cv_metric,
      xlab = &quot;lambda&quot;,
@@ -604,11 +643,12 @@ plot(full_model$glmnet.results[[1]])</code></pre>
 </div>
 <div id="conclusion" class="section level2">
 <h2>Conclusion</h2>
-<p>We don’t find any evidence that any of the available SNPs are related
-to wing length. This makes sense because of the infinitesimal model,
-which is a standard assumption in quantitative genetics that complex
-traits are determined by multiple SNPs, and very small contributions by
-individual SNPs.</p>
+<p>We don’t find evidence that any of the available SNPs are related to
+wing length. This makes sense because of the infinitesimal model, which
+is a standard assumption in quantitative genetics that complex traits
+are determined by multiple SNPs, and very small contributions by
+individual SNPs. Presumably we need a larger sample size to detect the
+influence of individual SNPs.</p>
 </div>
 <div id="bibliography" class="section level2 unnumbered">
 <h2 class="unnumbered">Bibliography</h2>
