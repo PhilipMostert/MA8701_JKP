@@ -130,6 +130,8 @@ A plot of the response variable is given below.
 
 ```{r histo}
 
+library(ggplot2)
+
 plot(df2$IID, df2$age1wing)
 abline(h= mean(df2$age1wing), col = 'red')
 plot(density(df2$age1wing))
@@ -159,7 +161,9 @@ The aim of this analysis is to perform dimension reduction on the dataset to fin
 
 $$
 \boldsymbol{Y} = \boldsymbol{X}\boldsymbol{\beta} +\boldsymbol{\epsilon},
-$$where:
+$$
+
+where:
 
 -   $\boldsymbol{Y}$ is a $n\times1$ vector of response variables (in our example the wing length),
 
@@ -172,7 +176,7 @@ $$where:
 The aim at hand is to choose a subset of $\boldsymbol{\beta}$ that exhibit the strongest effect. We do this by imposing some shrinkage term on the $\boldsymbol{\beta}$'s, such that some of them are set to $0$. We then define the lasso coefficients as ones which minimize a penalized residual sum of squares.
 
 $$
-\hat{\boldsymbol{\beta}}_{lasso} = argmin_{\boldsymbol{\beta}}\left(\frac{1}{n}\left|\left|\boldsymbol{Y} - \boldsymbol{X}\boldsymbol{\beta}\right|\right|^2_2\right)
+\hat{\boldsymbol{\beta}}_{lasso} = \text{argmin}_{\boldsymbol{\beta}}\left(\frac{1}{n}\left|\left|\boldsymbol{Y} - \boldsymbol{X}\boldsymbol{\beta}\right|\right|^2_2\right)
 $$
 
 subject to $\left|\left|\boldsymbol{\beta}\right|\right|_1 \le t$. Or using Lagrangian notation gives:
