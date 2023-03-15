@@ -13,15 +13,16 @@ biblio-style: authoryear
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE, eval = FALSE)
+knitr::opts_chunk$set(echo = TRUE, eval = TRUE)
 ```
 
 # Introduction
 
-```{r load results, echo = FALSE}
+```{r load results, echo = FALSE, message=FALSE}
 
 load('cv_model_age1wing.RData')
 load('sample_splitting_results.RData')
+library(glmnet)
 
 ```
 
@@ -59,7 +60,7 @@ install_github("junyangq/snpnet", dependencies = TRUE)
 
 We will use the full SNP data set, in the files `Genotypes.map` and `Genotypes.ped`. We first prepare the data using PLINK v2. To run our code, you need to download the genomic data and phenotype data from @DataUsed and the program `plink2` from [here](https://www.cog-genomics.org/plink/2.0/) and put it in your working folder. We do some standard quality control steps (remove SNPs with minor allele frequency lower than $0.01$, remove SNPs missing in more than $10\%$ of individuals and remove individuals missing more than $5\%$ of the SNPs). We also change the dataset to the input format that `snpnet` needs.
 
-```{r plink}
+```{r plink, eval = TRUE}
 system2("./plink2", "--pedmap doi_10.5061_dryad.m0cfxpp10__v10/Genotypes --chr-set 32 --out sparrow_snps --maf 0.01 --geno 0.1 --mind 0.05 --make-pgen vzs")
 ```
 
@@ -69,7 +70,7 @@ Running this script shows that we have 183155 SNPs to use in our analysis. For m
 
 In this section we prepare the phenotype data (age 1 wing length).
 
-```{r phenotype}
+```{r phenotype, message = FALSE}
 # Load the data
 library(dplyr)
 
@@ -212,7 +213,7 @@ Multiple-sample splitting:
 
 When performing lasso-regression we need to choose a value for the penalization parameter $\lambda$. We use cross-validation for this. Preferably the cross-validation loop should happen inside the multiple sample-splitting procedure to generate a new $\lambda$ for each split, but in the interest of computational time we pre-compute a global $\lambda$ to be used in all splits. Below is the code for the cross-validation for $\lambda$.
 
-```{r checkthings, echo = FALSE}
+```{r checkthings, echo = FALSE, eval = FALSE}
 
 for (name in names(configs)) {
     tryCatch(system(paste(configs[[name]], "-h"), ignore.stdout = T),
@@ -222,7 +223,7 @@ for (name in names(configs)) {
 
 ```
 
-```{r Lasso, echo = FALSE}
+```{r Lasso, echo = FALSE, eval = FALSE}
 library(snpnet)
 
 configs <- list(
@@ -287,7 +288,7 @@ save(full_model,
 
 Below we perform the multiple sample splitting and generate p-values.
 
-```{r ss, echo=FALSE}
+```{r ss, echo=FALSE, eval = FALSE}
 
 configs$early.stopping <- TRUE
 B <- 1e3
