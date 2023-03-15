@@ -465,16 +465,9 @@ them.</p>
 <p>In this section we prepare the phenotype data (age 1 wing
 length).</p>
 <pre class="r"><code># Load the data
-library(dplyr)</code></pre>
-<pre><code>## 
-## Attaching package: &#39;dplyr&#39;</code></pre>
-<pre><code>## The following objects are masked from &#39;package:stats&#39;:
-## 
-##     filter, lag</code></pre>
-<pre><code>## The following objects are masked from &#39;package:base&#39;:
-## 
-##     intersect, setdiff, setequal, union</code></pre>
-<pre class="r"><code>df &lt;- read.table(&quot;doi_10.5061_dryad.m0cfxpp10__v10/Data.txt&quot;,
+library(dplyr)
+
+df &lt;- read.table(&quot;doi_10.5061_dryad.m0cfxpp10__v10/Data.txt&quot;,
                  header = T)
 
 response = &quot;age1wing&quot;
@@ -643,6 +636,63 @@ should happen inside the multiple sample-splitting procedure to generate
 a new <span class="math inline">\(\lambda\)</span> for each split, but
 in the interest of computational time we pre-compute a global <span class="math inline">\(\lambda\)</span> to be used in all splits. Below
 is the code for the cross-validation for <span class="math inline">\(\lambda\)</span>.</p>
+<pre class="r"><code>library(snpnet)
+
+configs &lt;- list(
+    early.stopping = FALSE,
+    plink2.path = &quot;./plink2&quot;,   
+    zstdcat.path = &quot;zstdcat&quot;
+)
+
+
+configs$nCores &lt;- parallel::detectCores() - 1
+configs$use.glmnetPlus &lt;- TRUE
+configs$early.stopping &lt;- FALSE
+configs$stopping.lag &lt;- 100
+configs$verbose &lt;- FALSE
+
+# Full solution path
+full_model &lt;- snpnet(genotype.pfile = &quot;sparrow_snps&quot;,
+                     phenotype.file = paste0(&quot;pheno_&quot;, response, &quot;.txt&quot;),
+                     phenotype = response,
+                     # Can add fixed effects here
+                     covariates = covs,
+                     # alpha = 1 means lasso, 0 means ridge, elastic net between
+                     alpha = 1,
+                     nlambda = 100, # How many values of lambda to try
+                     split.col = NULL, # no validation
+                     configs = configs)
+
+# Cross-validation
+result &lt;- vector(&quot;list&quot;, num_folds)
+for (k in 1:num_folds) {
+  model &lt;- snpnet(genotype.pfile = &quot;sparrow_snps&quot;,
+                  phenotype.file = paste0(&quot;pheno_&quot;, response, &quot;.txt&quot;),
+                  phenotype = response,
+                  covariates = covs, # Add fixed unpenalized effects here
+                  # alpha = 1 means lasso, 0 means ridge, elastic net between
+                  alpha = 1,
+                  lambda = full_model$full.lams, # Check same lambdas as full
+                  split.col = paste0(&quot;fold&quot;, k), # Cross-validation columns
+                  configs = configs)
+  result[[k]] &lt;- model
+}
+
+# Choose best lambda
+cv_metric &lt;- rowMeans(sapply(result, function(res) res$metric.val))
+opt_idx &lt;- which.max(cv_metric) # metric: R^2 in val. set
+opt_lambda &lt;- full_model$full.lams[opt_idx]
+
+# Non-zero betas in optimal model
+opt_betas &lt;- full_model$beta[[opt_idx]][full_model$beta[[opt_idx]] != 0]
+
+# Save CV result
+save(full_model,
+     cv_metric,
+     opt_idx,
+     opt_lambda,
+     opt_betas,
+     file = paste0(&quot;cv_model_&quot;, response, &quot;.RData&quot;))</code></pre>
 </div>
 <div id="multiple-sample-splitting" class="section level3">
 <h3>Multiple sample splitting</h3>

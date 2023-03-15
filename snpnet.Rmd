@@ -223,7 +223,7 @@ for (name in names(configs)) {
 
 ```
 
-```{r Lasso, echo = FALSE, eval = FALSE}
+```{r Lasso, echo = TRUE, eval = FALSE}
 library(snpnet)
 
 configs <- list(
