@@ -698,6 +698,133 @@ save(full_model,
 <h3>Multiple sample splitting</h3>
 <p>Below we perform the multiple sample splitting and generate
 p-values.</p>
+<pre class="r"><code>configs$early.stopping &lt;- TRUE
+B &lt;- 1e3
+p_values_split &lt;- vector(&quot;list&quot;, B)
+
+for (b in 1:B) {
+  # Split sample in two
+  split &lt;- sample(x = df2$IID, size = round(length(df2$IID) / 2))
+
+  # Write file for lasso-half of sample
+  write.table(df2[df2$IID %in% split, ],
+              file = paste0(&quot;pheno_ss_&quot;, response, &quot;.txt&quot;),
+              row.names = F,
+              quote = F)
+
+  # Lasso-model with a given lambda
+  ss_model &lt;- snpnet(genotype.pfile = &quot;sparrow_snps&quot;,
+                     phenotype.file = paste0(&quot;pheno_ss_&quot;, response, &quot;.txt&quot;),
+                     phenotype = response,
+                     # Fixed effects
+                     covariates = covs,
+                     # alpha = 1 means lasso, 0 means ridge, elastic net between
+                     alpha = 1,
+                     lambda = opt_lambda, # Use optimal lambda
+                     split.col = NULL, # cross-validation
+                     configs = configs)
+
+  # Non-zero betas
+  ss_betas &lt;-  ss_model$beta[[1]][ss_model$beta[[1]] != 0][-(1:(length(covs)))]
+
+  # Write phenotype file for least squares half of sample
+  write.table(df2[!df2$IID %in% split, ],
+              file = paste0(&quot;pheno_ss!_&quot;, response, &quot;.txt&quot;),
+              row.names = F,
+              quote = F)
+
+  # Write genomic file for least squares half of sample
+  system2(&quot;./plink2&quot;,
+          paste0(&quot;--pfile vzs sparrow_snps --snps &quot;,
+                 paste(substr(names(ss_betas),
+                              start = 1,
+                              stop = nchar(names(ss_betas)) - 2),
+                       collapse = &quot;, &quot;),
+                 &quot; --pheno &quot;, paste0(&quot;pheno_ss!_&quot;, response, &quot;.txt&quot;),
+                 &quot; --pheno-name &quot;, response,
+                 &quot; --export A&quot;,
+                 &quot; --require-pheno &quot;, response,
+                 &quot; --freq&quot;,
+                 &quot; --out chosen_snps&quot;))
+
+  # Load genomic data
+  raw &lt;- data.table::fread(file = &quot;chosen_snps.raw&quot;,
+                           drop = c(1, 3, 4, 5),
+                           data.table = FALSE)
+  # Load allele frequencies
+  freqs &lt;- data.table::fread(file = &quot;chosen_snps.afreq&quot;,
+                             select = &quot;ALT_FREQS&quot;,
+                             data.table = FALSE)
+
+  # Mean imputation
+  for (snp in seq_len(ncol(raw))[-(1:2)]) {
+    raw[is.na(raw[, snp]), snp] &lt;- 2 * (1 - freqs[snp - 2, ])
+  }
+
+  # Data object for linear regression
+  ls_df &lt;- cbind(df2[match(raw$IID, df2$IID), c(covs)],
+                   raw[, !colnames(raw) %in% &quot;IID&quot;])
+
+  # Perform linear regression
+  ls_mod &lt;- lm(PHENOTYPE ~ ., data = ls_df)
+  # Save SNP p-values
+  p_v &lt;- summary(ls_mod)$coefficients[, &quot;Pr(&gt;|t|)&quot;]
+  p_v &lt;- p_v[substr(names(p_v), 1, 3) == &quot;SNP&quot;]
+  p_values_split[[b]] &lt;- data.frame(ID = names(p_v),
+                                    # Correct for multiple testing
+                                    P_corr = pmin(p_v * length(p_v), 1))
+  # Garbage collection
+  rm(ls_mod, raw, ss_model, ls_df, p_v)
+  gc()
+}
+
+# All SNPs with non-zero beta for in at least one split
+atleastonce &lt;- unique(unlist(sapply(p_values_split, function(p) p$ID)))
+
+# Combine results from splits
+p_values_split_combined &lt;- lapply(p_values_split, function(x) {
+
+  df &lt;- data.frame(p_val = rep(1, length(atleastonce))) # Non-chosen p-values=1
+  rownames(df) &lt;- atleastonce
+
+  # Record p-values for chosen SNPs
+  for (snp in x$ID) {
+    df$p_val[rownames(df) == snp] &lt;- x$P_corr[x$ID == snp]
+  }
+
+  df
+}) %&gt;%
+  do.call(what = cbind)
+
+colnames(p_values_split_combined) &lt;-
+  paste0(colnames(p_values_split_combined), &quot;_&quot;, 1:B)
+
+# Find Q_gamma for various values of gamma (i.e. correct for multiple splitting)
+gamma_min &lt;- 0.05 # Minimum quantile we check
+gamma &lt;- seq(from = gamma_min, by = 0.01, to = 1)
+Q_gamma &lt;- as.data.frame(lapply(X = gamma,
+                                FUN = function(g) {
+                                  apply(X = p_values_split_combined / g,
+                                        MARGIN = 1,
+                                        FUN = function(x) {
+                                          min(quantile(x, probs = g), 1)
+                                        })}),
+                         col.names = gamma,
+                         row.names = atleastonce)
+
+# Choose gamma for each SNP, and correct for the choice by multiplying
+# with (1 - log(gamma_min))
+P_val_final &lt;- pmin(1, apply(as.data.frame(Q_gamma),
+                             MARGIN = 1,
+                             FUN = min) * (1 - log(gamma_min)))
+
+names(P_val_final) &lt;- atleastonce
+
+# Save results
+save(p_values_split_combined,
+     Q_gamma,
+     P_val_final,
+     file = &quot;sample_splitting_results.RData&quot;)</code></pre>
 </div>
 </div>
 <div id="results" class="section level2">

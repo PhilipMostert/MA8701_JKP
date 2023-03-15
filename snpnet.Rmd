@@ -288,7 +288,7 @@ save(full_model,
 
 Below we perform the multiple sample splitting and generate p-values.
 
-```{r ss, echo=FALSE, eval = FALSE}
+```{r ss, echo=TRUE, eval = FALSE}
 
 configs$early.stopping <- TRUE
 B <- 1e3
