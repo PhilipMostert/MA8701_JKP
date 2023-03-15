@@ -473,15 +473,6 @@ df &lt;- read.table(&quot;doi_10.5061_dryad.m0cfxpp10__v10/Data.txt&quot;,
 response = &quot;age1wing&quot;
 
 df2 &lt;- select(df[!is.na(df[, response]), ], c(response, &quot;FGRM&quot;, &quot;gen_sex&quot;, &quot;all_hatchyears&quot;, &quot;fiflok&quot;))</code></pre>
-<pre><code>## Warning: Using an external vector in selections was deprecated in tidyselect 1.1.0.
-## ℹ Please use `all_of()` or `any_of()` instead.
-##   # Was:
-##   data %&gt;% select(response)
-## 
-##   # Now:
-##   data %&gt;% select(all_of(response))
-## 
-## See &lt;https://tidyselect.r-lib.org/reference/faq-external-vector.html&gt;.</code></pre>
 <p>We create some columns to indicate our cross-validation splits.</p>
 <pre class="r"><code>num_folds &lt;- 10
 df2[paste0(&quot;fold&quot;, 1:num_folds)] = NA

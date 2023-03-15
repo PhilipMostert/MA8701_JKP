@@ -70,7 +70,7 @@ Running this script shows that we have 183155 SNPs to use in our analysis. For m
 
 In this section we prepare the phenotype data (age 1 wing length).
 
-```{r phenotype, message = FALSE}
+```{r phenotype, message = FALSE, warning  = FALSE}
 # Load the data
 library(dplyr)
 
